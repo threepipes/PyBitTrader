@@ -8,6 +8,8 @@ class Interface:
     """
     外部取引, CSV, DB等共通のインターフェース
     """
+    commission = 0.15 / 100  # bitflyer準拠
+
     def __init__(self, span):
         self.span = span
 
@@ -67,21 +69,7 @@ class CsvInterface(Interface):
         self.start_date = start_date
         self.now = dt.fromtimestamp(start_date.timestamp())
         self._load_csv()
-        # self._set_row_id()
         self.init_recent(self.now)
-
-    def _set_row_id(self):
-        latest = len(self.database) - 1
-        oldest = 0
-        ans = oldest
-        while latest >= oldest:
-            mid = (latest + oldest) // 2
-            if self._is_past(mid):
-                ans = mid
-                oldest = mid + 1
-            else:
-                latest = mid - 1
-        self.current_latest = ans
 
     def _is_past(self, _id):
         return self.database[_id]['date'] < self.now

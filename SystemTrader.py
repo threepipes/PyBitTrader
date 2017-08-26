@@ -3,6 +3,7 @@ from collections import deque
 from datetime import timedelta
 from queue import Queue
 
+import math
 import numpy as np
 from matplotlib import pyplot as plt
 
@@ -14,6 +15,12 @@ def add_queue(qu: Queue, data):
     qu.put(data)
     if qu.full():
         qu.get()
+
+
+class Status:
+    def __init__(self):
+        self.jpy = 20000
+        self.btc = 0
 
 
 class Trader:
@@ -30,6 +37,7 @@ class RecentData:
         self.data_list = deque()
         self.amount = 0
         self.value = 0
+        self.sqval = 0
         self.span = span
         self.last_date = 0
 
@@ -45,10 +53,12 @@ class RecentData:
         data = {
             'size': _size,
             'price': _price,
-            'time': _date
+            'time': _date,
+            'sqval': _price ** 2 * _size
         }
         self.amount += _size
         self.value += _price * _size
+        self.sqval += data['sqval']
         if rev:
             self.data_list.appendleft(data)
             self.remove_top(_date)
@@ -62,6 +72,7 @@ class RecentData:
             pop = self.data_list.popleft()
             self.amount -= pop['size']
             self.value -= pop['price'] * pop['size']
+            self.sqval -= pop['sqval']
 
     def remove_top(self, _date):
         limit = _date + timedelta(seconds=self.span)
@@ -69,11 +80,15 @@ class RecentData:
             pop = self.data_list.pop()
             self.amount -= pop['size']
             self.value -= pop['price'] * pop['size']
+            self.sqval -= pop['sqval']
 
     def average(self):
         if self.amount == 0:
             return 0
         return self.value / self.amount
+
+    def sigma(self):
+        return math.sqrt(self.sqval / self.amount - self.average() ** 2)
 
     def update(self):
         pass
