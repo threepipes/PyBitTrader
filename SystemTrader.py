@@ -1,16 +1,13 @@
 import time
-import Functions as F
-from queue import Queue
 from collections import deque
-from matplotlib import pyplot as plt
+from datetime import timedelta
+from queue import Queue
+
 import numpy as np
-from datetime import datetime as dt
+from matplotlib import pyplot as plt
 
+import Functions as F
 
-def str2date(tstr):
-    # tstr = '2015-07-08T02:43:34.72'
-    tdatetime = dt.strptime(tstr, '%Y-%m-%dT%H:%M:%S.%f')
-    return tdatetime
 
 
 def add_queue(qu: Queue, data):
@@ -24,58 +21,70 @@ class Trader:
         pass
 
 
-class Interface:
-    """
-    外部取引，CSV共通のインターフェース
-    """
-    def __init__(self):
-        pass
-
-    def get_recent_avg(self, tm):
-        """
-        ここtm[sec]の取引成立金額の平均
-        """
-        raise NotImplementedError()
-
-    def ticker(self):
-        """
-        ticker情報
-        """
-        raise NotImplementedError()
-
-
-class CsvInterface(Interface):
-    def __init__(self):
-        pass
-
-    def get_recent_avg(self, tm):
-        pass
-
-    def ticker(self):
-        """
-        CSVの場合bidもaskもないので，
-        bid=ask=最新約定価格
-        """
-        pass
-
 
 class RecentData:
     def __init__(self, span):
+        """
+        :param span: timesec
+        """
         self.data_list = deque()
         self.amount = 0
         self.value = 0
+        self.span = span
+        self.last_date = 0
 
-    def add(self, row: dict):
+    def add(self, row: dict, rev=False):
+        """
+        :param row: dict{size, price, exec_date}
+        :return: None
+        """
         _size = row['size']
         _price = row['price']
         _time = row['exec_date']
-        _date = str2date(_time)
+        _date = F.str2date(_time)
         data = {
             'size': _size,
             'price': _price,
             'time': _date
         }
-        self.data_list.append(data)
+        self.amount += _size
+        self.value += _price * _size
+        if rev:
+            self.data_list.appendleft(data)
+            self.remove_top(_date)
+        else:
+            self.data_list.append(data)
+            self.remove(_date)
+
+    def remove(self, _date):
+        limit = _date - timedelta(seconds=self.span)
+        while self.data_list[0]['time'] < limit:
+            pop = self.data_list.popleft()
+            self.amount -= pop['size']
+            self.value -= pop['price'] * pop['size']
+
+    def remove_top(self, _date):
+        limit = _date + timedelta(seconds=self.span)
+        while self.data_list[-1]['time'] > limit:
+            pop = self.data_list.pop()
+            self.amount -= pop['size']
+            self.value -= pop['price'] * pop['size']
+
+    def average(self):
+        if self.amount == 0:
+            return 0
+        return self.value / self.amount
+
+    def update(self):
+        pass
+
+    def queue_diff(self):
+        return self.data_list[-1]['time'] - self.data_list[0]['time']
+
+    def __str__(self):
+        return '(amt:%f, val:%f, avg:%f)' % (
+            self.amount, self.value, self.average()
+        )
 
 
 class BoardData:
@@ -84,6 +93,7 @@ class BoardData:
     column = [
         'id', 'value'
     ]
+
     def __init__(self):
         self.pre_hist_id = 0
         self.buy_data = Queue(self.max_queue)

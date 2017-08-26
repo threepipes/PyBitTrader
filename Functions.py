@@ -1,6 +1,7 @@
+from datetime import datetime as dt
+
 import requests as req
 import json
-
 
 endpoint = 'https://api.bitflyer.jp/v1/'
 api_key = {
@@ -19,6 +20,8 @@ execution_keys = [
     # "child_order_acceptance_id",# : "JRF20150707-060559-396699"
 ]
 
+time_format = '%Y-%m-%dT%H:%M:%S.%f'
+
 
 def api(api_name: str, payloads=None):
     res = req.get(endpoint + api_key[api_name], params=payloads)
@@ -29,4 +32,14 @@ def dumps(dic: dict, order: list):
     s = []
     for key in order:
         s.append(str(dic[key]))
-    return ','.join(s) 
+    return ','.join(s)
+
+
+def date2str(dateobj: dt):
+    return dateobj.strftime(time_format)
+
+
+def str2date(tstr):
+    # tstr = '2015-07-08T02:43:34.72'
+    tdatetime = dt.strptime(tstr, time_format)
+    return tdatetime
