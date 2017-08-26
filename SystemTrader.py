@@ -24,6 +24,41 @@ class Trader:
         pass
 
 
+class Interface:
+    """
+    外部取引，CSV共通のインターフェース
+    """
+    def __init__(self):
+        pass
+
+    def get_recent_avg(self, tm):
+        """
+        ここtm[sec]の取引成立金額の平均
+        """
+        raise NotImplementedError()
+
+    def ticker(self):
+        """
+        ticker情報
+        """
+        raise NotImplementedError()
+
+
+class CsvInterface(Interface):
+    def __init__(self):
+        pass
+
+    def get_recent_avg(self, tm):
+        pass
+
+    def ticker(self):
+        """
+        CSVの場合bidもaskもないので，
+        bid=ask=最新約定価格
+        """
+        pass
+
+
 class RecentData:
     def __init__(self, span):
         self.data_list = deque()
