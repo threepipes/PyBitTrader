@@ -1,5 +1,6 @@
 from datetime import datetime as dt
 from datetime import timedelta
+from collections import deque
 from SystemTrader import RecentData
 import Functions as F
 
@@ -60,6 +61,17 @@ class Interface:
         """
         raise NotImplementedError()
 
+    def trade(self, side, price, size, product_code='BTC_JPY', expire=1):
+        """
+        :param side:
+        :param price:
+        :param size:
+        :param product_code:
+        :param expire: 期限切れまで何分か 最大30日？
+        :return: order_id
+        """
+        raise NotImplementedError()
+
 
 class CsvInterface(Interface):
     def __init__(self, file_name, span, start_date=dt.now()):
@@ -70,6 +82,9 @@ class CsvInterface(Interface):
         self.now = dt.fromtimestamp(start_date.timestamp())
         self._load_csv()
         self.init_recent(self.now)
+        self.order_id = 0
+        self.order_queue = {}
+        self.complete_queue = deque()
 
     def _is_past(self, _id):
         return self.database[_id]['date'] < self.now
@@ -117,6 +132,7 @@ class CsvInterface(Interface):
             self.current_latest += 1
             latest = db[self.current_latest]
             self.recent.add(latest)
+            self._set_order_state(latest)
         if self.current_latest >= dbsize - 1:
             return None
         if latest is None:
@@ -130,6 +146,26 @@ class CsvInterface(Interface):
             'ltp': latest['price']
         }
 
+    def _set_order_state(self, data):
+        """
+        best_bidの前後0.01の金額の揺れを許容
+        orderの実行と、UserDataの変更を行う
+        :param data:
+        :return:
+        """
+        for _id, order in self.order_queue.items():
+            price = data['price']
+            if abs(price - order['price']) > price * 0.01:
+                continue
+            size = min(data['size'], order['size'])
+            data['size'] -= size
+            order['size'] -= size
+            if order['size'] < 1e-9:
+                pass
+
+    def check_completed_order(self):
+        pass
+
     def latest_id(self):
         return self.database[self.current_latest]['id']
 
@@ -142,3 +178,14 @@ class CsvInterface(Interface):
             return []
         size = min(size, 500, before - after - 1)
         return list(reversed(self.database[before - size: before]))
+
+    def trade(self, side, price, size, product_code='BTC_JPY', expire=1):
+        self.order_queue[self.order_id] = {
+            'side': side,
+            'price': price,
+            'size': size,
+            'product_code': product_code,
+            'minute_to_expire': expire
+        }
+        self.order_id += 1
+        return self.order_id
