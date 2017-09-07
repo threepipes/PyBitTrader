@@ -1,7 +1,7 @@
 from datetime import datetime as dt
 from datetime import timedelta
 from collections import deque
-from SystemTrader import RecentData
+from SystemTrader import RecentData, Status
 import Functions as F
 
 
@@ -33,9 +33,6 @@ class Interface:
         最新の約定idを取得する
         :return: 最新id
         """
-        raise NotImplementedError()
-
-    def ticker(self):
         raise NotImplementedError()
 
     def get_hist(self, before=None, after=None, size=100):
@@ -74,8 +71,11 @@ class Interface:
 
 
 class CsvInterface(Interface):
-    def __init__(self, file_name, span, start_date=dt.now()):
+    def __init__(
+            self, file_name, span,
+            status: Status, start_date=dt.now()):
         super().__init__(span)
+        self.status = status
         self.file_name = file_name
         self.database = []
         self.start_date = start_date
@@ -148,23 +148,48 @@ class CsvInterface(Interface):
 
     def _set_order_state(self, data):
         """
-        best_bidの前後0.01の金額の揺れを許容
+        best_bid+0.5%まで(買いなら逆)の金額の揺れを許容
         orderの実行と、UserDataの変更を行う
         :param data:
         :return:
         """
+        complete = []  # 完了したので削除する注文のid
+        jpy_change = 0
+        btc_change = 0
         for _id, order in self.order_queue.items():
             price = data['price']
-            if abs(price - order['price']) > price * 0.01:
+            if not CsvInterface._ok_price(
+                    price, order['price'], order['side']):
                 continue
+            # 約定したとして扱う
             size = min(data['size'], order['size'])
             data['size'] -= size
             order['size'] -= size
             if order['size'] < 1e-9:
-                pass
+                # 注文全額確定
+                complete.append(_id)
+                self.complete_queue.append(order)
+            # 所持金を更新する TODO
+            jpy_value = size * order['price']
+            if order['side'] == 'SELL':
+                jpy_change += jpy_value
+                btc_change -= size
+            else:
+                jpy_change -= jpy_value
+                btc_change += size
 
-    def check_completed_order(self):
-        pass
+        for comp_id in complete:
+            del self.order_queue[comp_id]
+
+        self.status.jpy = int(self.status.jpy + jpy_change)
+        self.status.btc += btc_change
+
+    @classmethod
+    def _ok_price(cls, price, order_price, side):
+        if side == 'SELL':
+            return order_price <= price * 1.005
+        else:
+            return order_price * 1.005 >= price
 
     def latest_id(self):
         return self.database[self.current_latest]['id']
