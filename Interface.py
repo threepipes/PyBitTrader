@@ -205,6 +205,10 @@ class CsvInterface(Interface):
         return list(reversed(self.database[before - size: before]))
 
     def trade(self, side, price, size, product_code='BTC_JPY', expire=1):
+        """
+        注文を行う
+        注文はキューに加えられ、ticker毎に状態が更新される
+        """
         self.order_queue[self.order_id] = {
             'side': side,
             'price': price,
