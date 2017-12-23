@@ -1,12 +1,17 @@
 from datetime import datetime as dt
 
+import os
 import requests as req
 import json
+import time
+import hmac
+import hashlib
 
 endpoint = 'https://api.bitflyer.jp/v1/'
-api_key = {
+api_dict = {
     'history': 'executions',
     'board': 'board',
+    'ticker': 'ticker',
 }
 
 execution_keys = [
@@ -22,9 +27,34 @@ execution_keys = [
 
 time_format = '%Y-%m-%dT%H:%M:%S.%f'
 
+api_key = os.getenv('BF_KEY', '-')
+api_secret = os.getenv('BF_SECRET', '-')
+
 
 def api(api_name: str, payloads=None):
-    res = req.get(endpoint + api_key[api_name], params=payloads)
+    res = req.get(endpoint + api_dict[api_name], params=payloads)
+    return json.loads(res.text)
+
+
+def api_me(api_method, http_method='GET', body=None):
+    timestamp = str(int(time.time() * 1000))
+    text = timestamp + http_method + '/v1/me/' + api_method
+    if body:
+        text += json.dumps(body)
+    sign = hmac.new(bytearray(api_secret, 'utf-8'), bytearray(text, 'utf-8'), hashlib.sha256).hexdigest()
+    headers = {
+        'ACCESS-KEY': api_key,
+        'ACCESS-TIMESTAMP': timestamp,
+        'ACCESS-SIGN': sign,
+        'Content-Type': 'application/json'
+    }
+    if http_method == 'GET':
+        func = req.get
+    elif http_method == 'POST':
+        func = req.post
+    else:
+        return None
+    res = func(endpoint + 'me/' + api_method, headers=headers, params=body)
     return json.loads(res.text)
 
 

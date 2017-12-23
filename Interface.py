@@ -1,8 +1,9 @@
+from collections import deque
 from datetime import datetime as dt
 from datetime import timedelta
-from collections import deque
-from SystemTrader import RecentData, Status
+
 import Functions as F
+from trader.SystemTrader import RecentData, Status
 
 
 class Interface:
