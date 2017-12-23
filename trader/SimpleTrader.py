@@ -1,9 +1,11 @@
 import time
 import pandas as pd
-from logging import getLogger
+from logging import getLogger, basicConfig, DEBUG
 import json
 
 import Functions as F
+from VirtualApi import VirtualApi
+from database.TradeHistory import Border, Order, get_session
 
 logger = getLogger(__file__)
 
@@ -11,57 +13,70 @@ logger = getLogger(__file__)
 class Trader:
     def __init__(self):
         self.last_start = 0
-        self.data_range = 200
+        self.data_range = 300
         self.std_coef = 1.75
         self.least_trade_limit = 0.01
         self.commission = 0.15 / 100
-        self.interval_sec = 30
+        self.interval_sec = 10
+        self.session = get_session()
+        self.pre_sell_price = 99999999
+        self.pre_buy_price = 0
+        self.last_trade = 0
 
-    def update(self):
+        self.debug = VirtualApi()
+
+    def _update(self):
         # 30秒ごとに実行
         self.last_start = time.time()
-        res, me = Trader.get_recent_data()
-        sell_line, buy_line = self.set_trade_line(res)
-        order = self.generate_order(me, sell_line, buy_line)
-        if not order:
-            pass
-            # order_id = F.api_me('sendchildorder', 'POST', body=order)
+        res, me = self.get_recent_data()
+        sell_line, buy_line = self._set_trade_line(res)
+        order = self._generate_order(me, sell_line, buy_line)
+        if order:
+            order_data = Order.create(order, '-')
+            self.session.add(order_data)
+            order_id = self.debug.api_me('sendchildorder', 'POST', body=order)
             # logger.info('order id: %s, ', json.dumps(order_id))
+        self.session.commit()
 
     def run(self):
+        logger.info('starting trader')
         while True:
             try:
                 wait = max(0, self.interval_sec - (time.time() - self.last_start))
                 time.sleep(wait)
-                self.update()
+                self._update()
             except Exception as e:
                 logger.error(e)
-                break
+                raise e
 
-    @classmethod
-    def get_recent_data(cls):
+    def get_recent_data(self):
+        logger.debug('getting recent data')
         # 最新100件の取引履歴
         res = pd.DataFrame(F.api('history'))
         # 資産状況
-        me = F.api_me('getbalance')
+        me = self.debug.api_me('getbalance')
         me = pd.DataFrame(me).set_index('currency_code')
         return res, me
 
-    def set_trade_line(self, recent):
+    def _set_trade_line(self, recent):
         # 過去のデータから，売買ラインを見極める
         mean = recent.price.mean()
         std = recent.price.std()
         sell_line = mean + std * self.std_coef
         buy_line = mean - std * self.std_coef
+        logger.debug('setting trade line: sell=%f buy=%f', sell_line, buy_line)
         return sell_line, buy_line
 
-    def generate_order(self, me, sell_line, buy_line):
+    def _generate_order(self, me, sell_line, buy_line):
         # 注文を生成する
         ticker = F.api('ticker')
         mid_val = (ticker['best_bid'] + ticker['best_ask']) // 2
         jpy = me.loc['JPY'].available
         btc = me.loc['BTC'].available
         jpy_btc_val = jpy / mid_val
+
+        border_data = Border.create(mid_val, buy_line, sell_line)
+        self.session.add(border_data)
 
         order = {
             'product_code': 'BTC_JPY',
@@ -70,14 +85,38 @@ class Trader:
             'minute_to_expire': 1,
         }
 
-        if jpy_btc_val > self.least_trade_limit and mid_val < buy_line:
+        passed = time.time() - self.last_trade
+        if jpy_btc_val > self.least_trade_limit\
+                and mid_val < buy_line\
+                and (mid_val < int(self.pre_sell_price * 1.005)
+                     or passed > 60 * 5):
             order['size'] = jpy / (mid_val * (1 + self.commission))
             order['side'] = 'BUY'
-        elif btc > self.least_trade_limit and mid_val > sell_line:
-            order['size'] = btc * (mid_val * (1 - self.commission))
+            self.pre_buy_price = mid_val
+        elif btc > self.least_trade_limit\
+                and mid_val > sell_line\
+                and (mid_val > int(self.pre_buy_price * 1.005 + 1)
+                     or passed > 60 * 5):
+            order['size'] = btc * (1 - self.commission)
             order['side'] = 'SELL'
+            self.pre_sell_price = mid_val
         else:
             return None
+        self.last_trade = time.time()
+        logger.debug('pre_buy=%d pre_sell=%d passed=%f',
+                     self.pre_buy_price, self.pre_sell_price, passed)
         logger.info('ORDER: %s    [price: %d]', json.dumps(order), mid_val)
         logger.debug('me: jpy=%s btc=%s', str(jpy), str(btc))
         return order
+
+
+def logging_config():
+    basicConfig(format='%(asctime)s %(levelname)-8s %(message)s',
+                datefmt='%Y-%m-%d %H:%M:%S',
+                level=DEBUG)
+
+
+def run():
+    logging_config()
+    trader = Trader()
+    trader.run()
