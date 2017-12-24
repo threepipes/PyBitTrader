@@ -1,41 +1,42 @@
 import time
+from sqlalchemy.sql.expression import func
 
 import Functions as F
-from trader.SystemTrader import BoardData
-
-data_path = 'data/board/'
+from database.TradeHistory import History, get_session
 
 
-class BoardMiner(BoardData):
+class BoardMiner:
     def __init__(self):
         super().__init__()
-        self.pre_hist_id = 100000000
+        self.session = get_session()
+        self.pre_hist_id, = self.session.query(
+            func.min(History.id)
+        ).first()
         self.last_req = 0
+        self.sleep_time = 2
 
-    def add_history(self):
+    def _add_history(self):
         payloads = {
             'before': self.pre_hist_id,
             'count': 500,
         }
         hist = F.api('history', payloads=payloads)
         self.last_req = time.time()
-        # print(len(hist), self.pre_hist_id)
-        with open(self.dump_path + 'hist.csv', 'a') as f:
-            for row in hist:
-                data = []
-                _id = row['id']
-                self.pre_hist_id = min(_id, self.pre_hist_id)
-                for key in F.execution_keys:
-                    data.append(str(row[key]))
-                f.write(','.join(data) + '\n')
+        for h in hist:
+            h['exec_date'] = F.str2date(h['exec_date'])
+            hist_data = History(**h)
+            self.session.add(hist_data)
+            self.pre_hist_id = min(self.pre_hist_id, h['id'])
+        self.session.commit()
 
     def run(self):
-        for i in range(3600):
-            print(i)
-            self.add_history()
-            slp = max(0, 1 - (time.time() - self.last_req))
+        for i in range(30000):
+            print(i, self.pre_hist_id)
+            self._add_history()
+            slp = max(0, self.sleep_time - (time.time() - self.last_req))
             time.sleep(slp)
 
 
 if __name__ == '__main__':
-    pass
+    miner = BoardMiner()
+    miner.run()

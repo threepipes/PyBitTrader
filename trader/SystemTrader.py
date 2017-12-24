@@ -186,7 +186,7 @@ def run(board):
     count = 0
 
     while True:
-        board.add_history()
+        board._add_history()
         # print(board.get_board())
         time.sleep(2)
         count += 1

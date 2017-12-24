@@ -32,33 +32,6 @@ class Border(Base):
         })
 
 
-class OrderInfo(Base):
-    __tablename__ = 'order'
-
-    id = Column(Integer, primary_key=True)
-    product_code = Column(String(10))
-    side = Column(String(4))
-    price = Column(Integer)
-    size = Column(Float)
-    child_order_type = Column(String(10))
-    child_order_id = Column(String(50))
-    minute_to_expire = Column(Integer)
-    timestamp = Column(DateTime)
-
-    def __repr__(self):
-        return '<Order: %s %s price=%s size=%s>' % (
-            self.product_code, self.side, self.price, self.size
-        )
-
-    @classmethod
-    def create(cls, order, child_order_id, timestamp=None):
-        if not timestamp:
-            timestamp = datetime.datetime.today()
-        order['timestamp'] = timestamp
-        order['child_order_id'] = child_order_id
-        return OrderInfo(**order)
-
-
 class Order(Base):
     __tablename__ = 'orderdata'
 
@@ -84,6 +57,23 @@ class Order(Base):
         order['timestamp'] = timestamp
         order['child_order_id'] = child_order_id
         return Order(**order)
+
+
+class History(Base):
+    __tablename__ = 'history'
+
+    id = Column(Integer, primary_key=True)
+    side = Column(String(4))
+    price = Column(Integer)
+    size = Column(Float)
+    exec_date = Column(DateTime)
+    buy_child_order_acceptance_id = Column(String(50))
+    sell_child_order_acceptance_id = Column(String(50))
+
+    def __repr__(self):
+        return '<History: %s %s price=%s size=%s>' % (
+            self.id, self.side, self.price, self.size
+        )
 
 
 def get_engine():

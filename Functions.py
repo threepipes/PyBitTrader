@@ -26,6 +26,7 @@ execution_keys = [
 ]
 
 time_format = '%Y-%m-%dT%H:%M:%S.%f'
+time_format_nf = '%Y-%m-%dT%H:%M:%S.%f'
 
 api_key = os.getenv('BF_KEY', '-')
 api_secret = os.getenv('BF_SECRET', '-')
@@ -71,5 +72,6 @@ def date2str(dateobj: dt):
 
 def str2date(tstr):
     # tstr = '2015-07-08T02:43:34.72'
-    tdatetime = dt.strptime(tstr, time_format)
+    format = time_format if '.' in tstr else tstr
+    tdatetime = dt.strptime(tstr, format)
     return tdatetime

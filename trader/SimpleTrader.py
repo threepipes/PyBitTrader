@@ -1,6 +1,6 @@
 import time
 import pandas as pd
-from logging import getLogger, basicConfig, DEBUG
+from logging import getLogger, basicConfig, DEBUG, WARN
 import json
 
 import Functions as F
@@ -13,7 +13,7 @@ logger = getLogger(__file__)
 class Trader:
     def __init__(self):
         self.last_start = 0
-        self.data_range = 300
+        self.data_range = 500
         self.std_coef = 1.75
         self.least_trade_limit = 0.01
         self.commission = 0.15 / 100
@@ -47,10 +47,10 @@ class Trader:
                 self._update()
             except Exception as e:
                 logger.error(e)
-                raise e
+            time.sleep(10)
 
     def get_recent_data(self):
-        logger.debug('getting recent data')
+        # logger.debug('getting recent data')
         # 最新100件の取引履歴
         res = pd.DataFrame(F.api('history'))
         # 資産状況
@@ -64,7 +64,6 @@ class Trader:
         std = recent.price.std()
         sell_line = mean + std * self.std_coef
         buy_line = mean - std * self.std_coef
-        logger.debug('setting trade line: sell=%f buy=%f', sell_line, buy_line)
         return sell_line, buy_line
 
     def _generate_order(self, me, sell_line, buy_line):
@@ -74,6 +73,9 @@ class Trader:
         jpy = me.loc['JPY'].available
         btc = me.loc['BTC'].available
         jpy_btc_val = jpy / mid_val
+
+        logger.debug('trade line: sell=%f buy=%f price=%d',
+                     sell_line, buy_line, mid_val)
 
         border_data = Border.create(mid_val, buy_line, sell_line)
         self.session.add(border_data)
@@ -87,16 +89,16 @@ class Trader:
 
         passed = time.time() - self.last_trade
         if jpy_btc_val > self.least_trade_limit\
-                and mid_val < buy_line\
-                and (mid_val < int(self.pre_sell_price * 1.005)
-                     or passed > 60 * 5):
+                and (mid_val < buy_line or mid_val < int(self.pre_sell_price * 0.98))\
+                and (mid_val < int(self.pre_sell_price * (1 - 0.005))
+                     or passed > 60 * 20):
             order['size'] = jpy / (mid_val * (1 + self.commission))
             order['side'] = 'BUY'
             self.pre_buy_price = mid_val
         elif btc > self.least_trade_limit\
-                and mid_val > sell_line\
+                and (mid_val > sell_line or mid_val > int(self.pre_buy_price * 1.02))\
                 and (mid_val > int(self.pre_buy_price * 1.005 + 1)
-                     or passed > 60 * 5):
+                     or passed > 60 * 20):
             order['size'] = btc * (1 - self.commission)
             order['side'] = 'SELL'
             self.pre_sell_price = mid_val
@@ -114,6 +116,8 @@ def logging_config():
     basicConfig(format='%(asctime)s %(levelname)-8s %(message)s',
                 datefmt='%Y-%m-%d %H:%M:%S',
                 level=DEBUG)
+    requests_logger = getLogger('requests.packages.urllib3')
+    requests_logger.setLevel(WARN)
 
 
 def run():
