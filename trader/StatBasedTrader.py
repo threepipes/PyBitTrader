@@ -52,7 +52,8 @@ class Trader:
     def get_recent_data(self):
         # logger.debug('getting recent data')
         # 最新100件の取引履歴
-        res = pd.DataFrame(F.api('history'))
+        # res = pd.DataFrame(F.api('history'))
+        res = None
         # 資産状況
         me = self.debug.api_me('getbalance')
         me = pd.DataFrame(me).set_index('currency_code')
@@ -60,10 +61,12 @@ class Trader:
 
     def _set_trade_line(self, recent):
         # 過去のデータから，売買ラインを見極める
-        mean = recent.price.mean()
-        std = recent.price.std()
-        sell_line = mean + std * self.std_coef
-        buy_line = mean - std * self.std_coef
+        # mean = recent.price.mean()
+        # std = recent.price.std()
+        # sell_line = mean + std * self.std_coef
+        # buy_line = mean - std * self.std_coef
+        buy_line = int(self.pre_sell_price * (1 - 0.1))
+        sell_line = int(self.pre_buy_price * 1.02 + 1)
         return sell_line, buy_line
 
     def _generate_order(self, me, sell_line, buy_line):
@@ -89,16 +92,14 @@ class Trader:
 
         passed = time.time() - self.last_trade
         if jpy_btc_val > self.least_trade_limit\
-                and (mid_val < buy_line or mid_val < int(self.pre_sell_price * 0.98))\
-                and (mid_val < int(self.pre_sell_price * (1 - 0.005))
-                     or passed > 60 * 20):
+                and (mid_val < buy_line
+                     or passed > 60 * 60 * 24 * 5):
             order['size'] = jpy / (mid_val * (1 + self.commission))
             order['side'] = 'BUY'
             self.pre_buy_price = mid_val
         elif btc > self.least_trade_limit\
-                and (mid_val > sell_line or mid_val > int(self.pre_buy_price * 1.02))\
-                and (mid_val > int(self.pre_buy_price * 1.005 + 1)
-                     or passed > 60 * 20):
+                and (mid_val > sell_line
+                     or passed > 60 * 60 * 24 * 5):
             order['size'] = btc * (1 - self.commission)
             order['side'] = 'SELL'
             self.pre_sell_price = mid_val
