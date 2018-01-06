@@ -32,9 +32,9 @@ class Trader:
         sell_line, buy_line = self._set_trade_line(res)
         order = self._generate_order(me, sell_line, buy_line)
         if order:
-            order_data = Order.create(order, '-')
-            self.session.add(order_data)
             order_id = self.debug.api_me('sendchildorder', 'POST', body=order)
+            order_data = Order.create(order, order_id)
+            self.session.add(order_data)
             # logger.info('order id: %s, ', json.dumps(order_id))
         self.session.commit()
 
@@ -65,7 +65,7 @@ class Trader:
         # std = recent.price.std()
         # sell_line = mean + std * self.std_coef
         # buy_line = mean - std * self.std_coef
-        buy_line = int(self.pre_sell_price * (1 - 0.1))
+        buy_line = int(self.pre_sell_price * (1 - 0.05))
         sell_line = int(self.pre_buy_price * 1.02 + 1)
         return sell_line, buy_line
 

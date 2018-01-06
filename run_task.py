@@ -1,3 +1,3 @@
-from trader.SimpleTrader import run
+from trader.StatBasedTrader import run
 
 run()

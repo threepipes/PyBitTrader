@@ -10,14 +10,15 @@ class BoardMiner:
         super().__init__()
         self.session = get_session()
         self.pre_hist_id, = self.session.query(
-            func.min(History.id)
+            func.max(History.id)
         ).first()
         self.last_req = 0
-        self.sleep_time = 2
+        self.sleep_time = 10
 
     def _add_history(self):
         payloads = {
-            'before': self.pre_hist_id,
+            'after': self.pre_hist_id,
+            'before': self.pre_hist_id + 501,
             'count': 500,
         }
         hist = F.api('history', payloads=payloads)
@@ -26,7 +27,9 @@ class BoardMiner:
             h['exec_date'] = F.str2date(h['exec_date'])
             hist_data = History(**h)
             self.session.add(hist_data)
-            self.pre_hist_id = min(self.pre_hist_id, h['id'])
+            self.pre_hist_id = max(self.pre_hist_id, h['id'])
+        if len(hist) == 0:
+            self.pre_hist_id += 500
         self.session.commit()
 
     def run(self):
