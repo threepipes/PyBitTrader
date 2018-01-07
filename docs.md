@@ -1,5 +1,11 @@
 # 日記
 
+## 1/7
+chainerrlによる強化学習の導入
+参考:https://launchpad.ai/blog/trading-bitcoin
+総合するとプラスに見えるがどうか
+
+
 ## 1/6
 save point法
 
