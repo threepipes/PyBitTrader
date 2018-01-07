@@ -5,7 +5,8 @@ import json
 
 import Functions as F
 from VirtualApi import VirtualApi
-from database.TradeHistory import Border, Order, get_session
+from database.TradeHistory import Border, Order, History, get_session
+from database.db_utils import get_recent_df
 
 logger = getLogger(__file__)
 
@@ -29,7 +30,7 @@ class Trader:
         # interval_sec秒ごとに実行
         self.last_start = time.time()
         res, me = self.get_recent_data()
-        sell_line, buy_line = self._set_trade_line(res)
+        sell_line, buy_line = self._decide_action(res)
         order = self._generate_order(me, sell_line, buy_line)
         if order:
             order_id = self.debug.api_me('sendchildorder', 'POST', body=order)
@@ -52,19 +53,23 @@ class Trader:
     def get_recent_data(self):
         # logger.debug('getting recent data')
         # 最新100件の取引履歴
-        # res = pd.DataFrame(F.api('history'))
-        res = None
+        self._add_history()
+        res = get_recent_df(History, 1000, self.session)
         # 資産状況
         me = self.debug.api_me('getbalance')
         me = pd.DataFrame(me).set_index('currency_code')
         return res, me
 
-    def _set_trade_line(self, recent):
-        # 過去のデータから，売買ラインを見極める
-        # mean = recent.price.mean()
-        # std = recent.price.std()
-        # sell_line = mean + std * self.std_coef
-        # buy_line = mean - std * self.std_coef
+    def _add_history(self):
+        hist = F.api('history', payloads={'count': 500})
+        for h in hist:
+            h['exec_date'] = F.str2date(h['exec_date'])
+            hist_data = History(**h)
+            self.session.add(hist_data)
+        self.session.commit()
+
+    def _decide_action(self, recent):
+        # 過去のデータから行動決定
         buy_line = int(self.pre_sell_price * (1 - 0.05))
         sell_line = int(self.pre_buy_price * 1.02 + 1)
         return sell_line, buy_line
