@@ -2,27 +2,49 @@ import time
 import pandas as pd
 from logging import getLogger, basicConfig, DEBUG, WARN
 import json
+from sqlalchemy.sql.expression import func
+import datetime
 
 import Functions as F
 from VirtualApi import VirtualApi
-from database.TradeHistory import Border, Order, History, get_session
-from database.db_utils import get_recent_df
+from database.TradeHistory import Order, History, get_session
+from database.db_utils import get_recent_hist_df, history2indicator
+from model.model_utils import load_agent
 
 logger = getLogger(__file__)
+
+
+class State:
+    UNIT_MAX = 4
+
+    def __init__(self):
+        self.unit = 0
+
+    def trade(self, price, price_pre, action):
+        diff = abs(action - self.unit)
+        coef = diff / max(action, self.unit)
+        reward = self.unit * (price / price_pre - 1)
+        self.unit = action
+        return coef, reward
 
 
 class Trader:
     def __init__(self):
         self.last_start = 0
-        self.data_range = 500
-        self.std_coef = 1.75
         self.least_trade_limit = 0.01
         self.commission = 0.15 / 100
-        self.interval_sec = 10
+        self.interval_sec = 60 * 15
         self.session = get_session()
-        self.pre_sell_price = 99999999
-        self.pre_buy_price = 0
         self.last_trade = 0
+
+        self.action_hist = {
+            'r': 0,
+            'r_1': 0,
+            'r_2': 0,
+            'state': 0
+        }
+        self.agent = load_agent()
+        self.state = State()
 
         self.debug = VirtualApi()
 
@@ -30,8 +52,8 @@ class Trader:
         # interval_sec秒ごとに実行
         self.last_start = time.time()
         res, me = self.get_recent_data()
-        sell_line, buy_line = self._decide_action(res)
-        order = self._generate_order(me, sell_line, buy_line)
+        action, price, price_pre = self._decide_action(res)
+        order = self._generate_order(me, action, price, price_pre)
         if order:
             order_id = self.debug.api_me('sendchildorder', 'POST', body=order)
             order_data = Order.create(order, order_id)
@@ -52,16 +74,18 @@ class Trader:
 
     def get_recent_data(self):
         # logger.debug('getting recent data')
-        # 最新100件の取引履歴
-        self._add_history()
-        res = get_recent_df(History, 1000, self.session)
+        # self._add_history()  # DataMiningを並行して動かすこととする(必須)
+        # 最新1週間の取引履歴
+        week_ago = datetime.datetime.utcnow() - datetime.timedelta(weeks=2, hours=1)
+        res = get_recent_hist_df(week_ago, self.session)
         # 資産状況
         me = self.debug.api_me('getbalance')
         me = pd.DataFrame(me).set_index('currency_code')
         return res, me
 
     def _add_history(self):
-        hist = F.api('history', payloads={'count': 500})
+        pre_hist_id, = self.session.query(func.max(History.id)).first()
+        hist = F.api('history', payloads={'after': pre_hist_id, 'count': 500})
         for h in hist:
             h['exec_date'] = F.str2date(h['exec_date'])
             hist_data = History(**h)
@@ -70,51 +94,47 @@ class Trader:
 
     def _decide_action(self, recent):
         # 過去のデータから行動決定
-        buy_line = int(self.pre_sell_price * (1 - 0.05))
-        sell_line = int(self.pre_buy_price * 1.02 + 1)
-        return sell_line, buy_line
+        indicator, price, price_pre = history2indicator(recent, **self.action_hist)
+        return self.agent.act(indicator), price, price_pre
 
-    def _generate_order(self, me, sell_line, buy_line):
+    def _generate_order(self, me, action, price_15, price_15_pre):
         # 注文を生成する
         ticker = F.api('ticker')
         mid_val = (ticker['best_bid'] + ticker['best_ask']) // 2
         jpy = me.loc['JPY'].available
         btc = me.loc['BTC'].available
-        jpy_btc_val = jpy / mid_val
 
-        logger.debug('trade line: sell=%f buy=%f price=%d',
-                     sell_line, buy_line, mid_val)
-
-        border_data = Border.create(mid_val, buy_line, sell_line)
-        self.session.add(border_data)
+        logger.debug('trade act: act=%d price=%d resource=%f', action, mid_val, jpy + btc * mid_val)
 
         order = {
             'product_code': 'BTC_JPY',
             'child_order_type': 'LIMIT',
             'price': int(mid_val),
-            'minute_to_expire': 1,
+            'minute_to_expire': 10,
         }
 
-        passed = time.time() - self.last_trade
-        if jpy_btc_val > self.least_trade_limit\
-                and (mid_val < buy_line
-                     or passed > 60 * 60 * 24 * 5):
-            order['size'] = jpy / (mid_val * (1 + self.commission))
+        coef, reward = self.state.trade(price_15, price_15_pre, action)
+        act_pre = self.action_hist['state']
+
+        self.action_hist = {
+            'r': reward,
+            'r_1': self.action_hist['r'],
+            'r_2': self.action_hist['r_1'],
+            'state': action
+        }
+
+        if act_pre < action:
+            order['size'] = jpy * coef / (mid_val * (1 + self.commission))
             order['side'] = 'BUY'
-            self.pre_buy_price = mid_val
-        elif btc > self.least_trade_limit\
-                and (mid_val > sell_line
-                     or passed > 60 * 60 * 24 * 5):
-            order['size'] = btc * (1 - self.commission)
+        elif act_pre > action:
+            order['size'] = btc * coef * (1 - self.commission)
             order['side'] = 'SELL'
-            self.pre_sell_price = mid_val
         else:
             return None
         self.last_trade = time.time()
-        logger.debug('pre_buy=%d pre_sell=%d passed=%f',
-                     self.pre_buy_price, self.pre_sell_price, passed)
         logger.info('ORDER: %s    [price: %d]', json.dumps(order), mid_val)
         logger.debug('me: jpy=%s btc=%s', str(jpy), str(btc))
+
         return order
 
 

@@ -5,8 +5,8 @@ logger = getLogger(__file__)
 
 class VirtualApi:
     def __init__(self):
-        self.jpy = 20000
-        self.btc = 0.013
+        self.jpy = 40000
+        self.btc = 0
         self.commission = 0.15 / 100
 
     def api_me(self, api_method, http_method='GET', body=None):

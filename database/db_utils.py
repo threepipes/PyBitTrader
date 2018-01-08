@@ -1,6 +1,6 @@
 from sqlalchemy import desc
 import pandas as pd
-import datetime
+import numpy as np
 
 from database.TradeHistory import History
 
@@ -18,6 +18,11 @@ def get_recent_hist_query(from_time, session):
     return session.query(History).filter(History.exec_date > from_time)
 
 
+def get_recent_hist_df(from_time, session):
+    statement = get_recent_hist_query(from_time, session).statement
+    return pd.read_sql(statement, session.bind)
+
+
 def avg(p, n):
     return p.rolling(n).mean()
 
@@ -30,7 +35,7 @@ def zs(p, n):
     return (p - p.rolling(n).mean()) / p.rolling(n).std()
 
 
-def history2indicator(df):
+def history2indicator(df, r=0, r_1=0, r_2=0, state=0):
     # Historyデータを方針決定用のデータに変換
     df.exec_date = pd.to_datetime(df.exec_date)
     df = df.set_index('exec_date')
@@ -60,10 +65,12 @@ def history2indicator(df):
     dfb['vZ12'] = zs(v, 12)
     dfb['vZ96'] = zs(v, 96)
     dfb['vZ672'] = zs(v, 672)
+
     # rや前の行動を保持しないといけない問題
-    for r_label in ['r', 'r_1', 'r_2']:
-        dfb[r_label] = 0
-    dfb['state'] = 0
+    dfb['r'] = r
+    dfb['r_1'] = r_1
+    dfb['r_2'] = r_2
+    dfb['state'] = state
 
     dfb['pZ12'] = zs(p, 12)
     dfb['pZ96'] = zs(p, 96)
@@ -72,8 +79,9 @@ def history2indicator(df):
     dfb['vol672'] = zs(std(p, 672), 96)
     dfb['dv12_96'] = zs(std(p, 12) / avg(std(p, 12), 96), 96)
     dfb['dv96_672'] = zs(std(p, 96) / avg(std(p, 96), 672), 96)
+    dfb['utctime'] = (dfb.index.hour * 4 + dfb.index.minute / 15) / 96
 
-    indicator = dfb.reset_index().loc[:, 'pma12':'dv96_672']
-    price_history = dfb.reset_index().price
-
-    return price_history, indicator
+    price = dfb.price.loc[dfb.index[-1]]
+    price_pre = dfb.price.loc[dfb.index[-2]]
+    # return last row
+    return np.array(dfb.loc[dfb.index[-1], 'pma12':'utctime'], dtype=np.float32), price, price_pre
