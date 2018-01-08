@@ -6,7 +6,7 @@ import random
 class History:
     OFFSET = 861
     ACTIONS = 5  # 取れる行動の種類数
-    OBS_SIZE = 24  # エージェントの観察値の種類数 ここでは履歴長(300) + 前回価格(1)
+    OBS_SIZE = 25  # エージェントの観察値の種類数 ここでは履歴長(300) + 前回価格(1)
     EPISODE_LEN = 200
 
     def __init__(self, price_hist, indicator):
@@ -52,7 +52,7 @@ class History:
         price_pre = self.price[self.index]
         self.index += 1
         price = self.price[self.index]
-        reward = action * (price / price_pre - 1)
+        reward = action_pre * (price / price_pre - 1)
         if action != action_pre:
             reward -= abs(action - action_pre) * 0.15 / 100
         self.indicator.loc[self.index, 'r'] = reward
