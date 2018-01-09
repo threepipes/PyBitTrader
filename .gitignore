@@ -1,4 +1,12 @@
-/__pycache__/
+**/__pycache__/
 /.vscode/
 /data/
 /.idea/
+/agent/
+/.ipynb_checkpoints/
+/result/
+*.log
+*.7z
+*.sqlite3
+*.npz
+*.txt

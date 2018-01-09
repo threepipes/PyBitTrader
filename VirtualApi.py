@@ -1,6 +1,6 @@
-from logging import getLogger
+from utils.settings import get_logger
 
-logger = getLogger(__file__)
+logger = get_logger().getChild(__file__)
 
 
 class VirtualApi:

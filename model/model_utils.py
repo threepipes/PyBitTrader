@@ -2,7 +2,7 @@ import chainer
 import chainerrl
 from gym import spaces
 
-from model.TradeModel2 import History
+from model.TradeModel2 import TradeEnv
 
 
 def make_agent(obs_size, n_actions):
@@ -39,6 +39,6 @@ def make_agent(obs_size, n_actions):
 
 
 def load_agent(model_path='agent/model'):
-    agent = make_agent(History.OBS_SIZE, History.ACTIONS)
+    agent = make_agent(TradeEnv.OBS_SIZE, TradeEnv.ACTIONS)
     agent.load(model_path)
     return agent

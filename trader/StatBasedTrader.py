@@ -1,17 +1,17 @@
 import time
 import pandas as pd
-from logging import getLogger, basicConfig, DEBUG, WARN
 import json
 from sqlalchemy.sql.expression import func
 import datetime
 
 import Functions as F
+from utils.settings import logging_config, get_logger
 from VirtualApi import VirtualApi
 from database.TradeHistory import Order, History, get_session
 from database.db_utils import get_recent_hist_df, history2indicator
 from model.model_utils import load_agent
 
-logger = getLogger(__file__)
+logger = get_logger().getChild(__file__)
 
 
 class State:
@@ -136,14 +136,6 @@ class Trader:
         logger.debug('me: jpy=%s btc=%s', str(jpy), str(btc))
 
         return order
-
-
-def logging_config():
-    basicConfig(format='%(asctime)s %(levelname)-8s %(message)s',
-                datefmt='%Y-%m-%d %H:%M:%S',
-                level=DEBUG)
-    requests_logger = getLogger('requests.packages.urllib3')
-    requests_logger.setLevel(WARN)
 
 
 def run():

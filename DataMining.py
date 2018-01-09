@@ -2,9 +2,13 @@ import time
 from sqlalchemy.sql.expression import func
 from sqlalchemy import desc
 import datetime
+from requests.exceptions import ConnectionError
 
 import Functions as F
 from database.TradeHistory import History, get_session
+from utils.settings import logging_config, get_logger
+
+logger = get_logger().getChild(__file__)
 
 
 class BoardMiner:
@@ -39,14 +43,21 @@ class BoardMiner:
         return True
 
     def run(self):
-        for i in range(30000):
-            print(i, self.pre_hist_id)
-            if not self._add_history():
-                self.sleep_time = 10
-            slp = max(0, self.sleep_time - (time.time() - self.last_req))
-            time.sleep(slp)
+        while True:
+            try:
+                logger.info(self.pre_hist_id)
+                if not self._add_history():
+                    self.sleep_time = 10
+                slp = max(0, self.sleep_time - (time.time() - self.last_req))
+                time.sleep(slp)
+            except ConnectionError as e:
+                logger.error('Error: hist_id=%d', self.pre_hist_id)
+                logger.error(e)
+                self.sleep_time = 2
+                time.sleep(60 * 5)
 
 
 if __name__ == '__main__':
+    logging_config()
     miner = BoardMiner()
     miner.run()

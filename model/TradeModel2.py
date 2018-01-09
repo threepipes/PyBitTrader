@@ -3,7 +3,7 @@ from gym import spaces
 import random
 
 
-class History:
+class TradeEnv:
     OFFSET = 861
     ACTIONS = 5  # 取れる行動の種類数
     OBS_SIZE = 25  # エージェントの観察値の種類数 ここでは履歴長(300) + 前回価格(1)
@@ -48,16 +48,14 @@ class History:
             info   : str (自由?): (デバッグ用などの)情報
         """
         pre_obs = self.indicator.loc[self.index]
-        action_pre = pre_obs['state']
-        price_pre = self.price[self.index]
         self.index += 1
         price = self.price[self.index]
-        reward = action_pre * (price / price_pre - 1)
-        if action != action_pre:
-            reward -= abs(action - action_pre) * 0.15 / 100
-        self.indicator.loc[self.index, 'r'] = reward
-        self.indicator.loc[self.index + 1, 'r_1'] = reward
-        self.indicator.loc[self.index + 2, 'r_2'] = reward
+        price_next = self.price[self.index + 1]
+        sgn = 1 if price_next > price else -1
+        reward = (action - 2) / 2 * sgn
+        self.indicator.loc[self.index + 1, 'r'] = reward
+        self.indicator.loc[self.index + 2, 'r_1'] = reward
+        self.indicator.loc[self.index + 3, 'r_2'] = reward
         self.indicator.loc[self.index, 'state'] = action
 
         observe = self._get_observe()
