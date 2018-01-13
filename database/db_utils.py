@@ -2,7 +2,7 @@ from sqlalchemy import desc
 import pandas as pd
 import numpy as np
 
-from database.TradeHistory import History
+from database.TradeHistory import History, History15min
 
 
 def get_recent_query(data_type, n, session):
@@ -23,6 +23,20 @@ def get_recent_hist_df(from_time, session):
     return pd.read_sql(statement, session.bind)
 
 
+def get_recent_hist15_query(from_time, session):
+    return session.query(History15min).filter(History15min.exec_date > from_time)
+
+
+def get_recent_hist15_df(from_time, session):
+    statement = get_recent_hist15_query(from_time, session).statement
+    return pd.read_sql(statement, session.bind)
+
+
+def set_dateindex(df):
+    df.exec_date = pd.to_datetime(df.exec_date)
+    return df.set_index('exec_date')
+
+
 def avg(p, n):
     return p.rolling(n).mean()
 
@@ -35,15 +49,10 @@ def zs(p, n):
     return (p - p.rolling(n).mean()) / p.rolling(n).std()
 
 
-def history2indicator(df, r=0, r_1=0, r_2=0, state=0):
-    # Historyデータを方針決定用のデータに変換
-    df.exec_date = pd.to_datetime(df.exec_date)
-    df = df.set_index('exec_date')
-    df = df.loc['2000':]
-    df = df[['id', 'price', 'size']]
-
-    bench_price = df.price.resample('15Min').mean().fillna(method='ffill')
-    bench_size = df['size'].resample('15Min').sum().fillna(0)
+def history2indicator(df_15, r=0, r_1=0, r_2=0, state=0):
+    # History15minデータを方針決定用のデータに変換
+    bench_price = df_15.price
+    bench_size = df_15['size']
     dfb = pd.DataFrame([bench_price, bench_size]).T
 
     p = dfb.price

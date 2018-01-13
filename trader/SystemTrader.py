@@ -7,8 +7,7 @@ import math
 import numpy as np
 from matplotlib import pyplot as plt
 
-import Functions as F
-
+from utils import BitFlyer as F
 
 
 def add_queue(qu: Queue, data):

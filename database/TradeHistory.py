@@ -1,3 +1,4 @@
+import os
 from sqlalchemy import Column, String, Float, DateTime, Integer, create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext import declarative
@@ -76,8 +77,26 @@ class History(Base):
         )
 
 
+class History15min(Base):
+    __tablename__ = 'history15min'
+
+    price = Column(Integer, primary_key=True)
+    size = Column(Float)
+    exec_date = Column(DateTime)
+
+    def __repr__(self):
+        return '<History15min: %s price=%s size=%s>' % (
+            self.exec_date, self.price, self.size
+        )
+
+
 def get_engine():
-    return create_engine('sqlite:///db.sqlite3')
+    user_name = os.getenv('TRADER_DB_USER', '')
+    db_name = os.getenv('TRADER_DB', '')
+    password = os.getenv('TRADER_DB_PASS', '')
+    return create_engine('mysql+mysqlconnector://%s:%s@localhost/%s' % (
+        user_name, password, db_name
+    ))
 
 
 def get_session():

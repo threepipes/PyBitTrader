@@ -2,7 +2,7 @@ from collections import deque
 from datetime import datetime as dt
 from datetime import timedelta
 
-import Functions as F
+from utils import BitFlyer as F
 from trader.SystemTrader import RecentData, Status
 
 

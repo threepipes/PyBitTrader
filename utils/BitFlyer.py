@@ -6,6 +6,9 @@ import json
 import time
 import hmac
 import hashlib
+from utils.settings import get_logger
+
+logger = get_logger()
 
 endpoint = 'https://api.bitflyer.jp/v1/'
 api_dict = {
@@ -34,7 +37,11 @@ api_secret = os.getenv('BF_SECRET', '-')
 
 def api(api_name: str, payloads=None):
     res = req.get(endpoint + api_dict[api_name], params=payloads)
-    return json.loads(res.text)
+    try:
+        return json.loads(res.text)
+    except json.JSONDecodeError as e:
+        logger.error(e)
+        return None
 
 
 def api_me(api_method, http_method='GET', body=None):
@@ -56,7 +63,11 @@ def api_me(api_method, http_method='GET', body=None):
     else:
         return None
     res = func(endpoint + 'me/' + api_method, headers=headers, params=body)
-    return json.loads(res.text)
+    try:
+        return json.loads(res.text)
+    except json.JSONDecodeError as e:
+        logger.error(e)
+        return None
 
 
 def dumps(dic: dict, order: list):

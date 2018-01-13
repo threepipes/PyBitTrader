@@ -1,8 +1,11 @@
 import chainer
 import chainerrl
 from gym import spaces
+from chainer import datasets, iterators, optimizers, serializers
+import numpy as np
 
 from model.TradeModel2 import TradeEnv
+from model.ChainerModel import MyChain
 
 
 def make_agent(obs_size, n_actions):
@@ -42,3 +45,15 @@ def load_agent(model_path='agent/model'):
     agent = make_agent(TradeEnv.OBS_SIZE, TradeEnv.ACTIONS)
     agent.load(model_path)
     return agent
+
+
+def load_predictor(path='agent/predictor.npz'):
+    indicator_input_size = 25
+    model = MyChain(indicator_input_size)
+    serializers.load_npz(path, model)
+    return model
+
+
+def predict_row(model, indicator):
+    data = np.array([indicator], dtype=np.float32)
+    return model(data).data.argmax(axis=1)[0]

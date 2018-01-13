@@ -1,8 +1,7 @@
 from Interface import CsvInterface
-import Functions as F
+from utils import BitFlyer as F
 from datetime import timedelta
 
-import numpy as np
 from matplotlib import pyplot as plt
 
 

@@ -7,7 +7,7 @@ class VirtualApi:
     def __init__(self):
         self.jpy = 40000
         self.btc = 0
-        self.commission = 0.15 / 100
+        self.commission = 0#0.15 / 100
 
     def api_me(self, api_method, http_method='GET', body=None):
         if api_method == 'getbalance':

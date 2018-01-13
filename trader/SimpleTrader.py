@@ -3,8 +3,8 @@ import pandas as pd
 from logging import getLogger, basicConfig, DEBUG, WARN
 import json
 
-import Functions as F
-from VirtualApi import VirtualApi
+from utils import BitFlyer as F
+from utils.VirtualApi import VirtualApi
 from database.TradeHistory import Border, Order, get_session
 
 logger = getLogger(__file__)

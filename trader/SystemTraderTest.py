@@ -1,7 +1,7 @@
 import datetime
 import random
 
-from Functions import date2str
+from utils.BitFlyer import date2str
 from trader.SystemTrader import RecentData
 
 
