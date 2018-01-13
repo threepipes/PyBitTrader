@@ -5,8 +5,11 @@
 /agent/
 /.ipynb_checkpoints/
 /result/
+/result*/
 *.log
 *.7z
 *.sqlite3
 *.npz
 *.txt
+*.sql
+*.csv
