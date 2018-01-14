@@ -12,8 +12,9 @@ from utils.VirtualApi import VirtualApi
 from database.TradeHistory import Order, History, get_session
 from database.db_utils import (
     get_recent_hist15_df, get_recent_hist_df,
-    history2indicator, set_dateindex
+    set_dateindex
 )
+from model.ChainerModel import history2indicator
 from model.model_utils import load_predictor, predict_row
 from ui.notification import slack
 
