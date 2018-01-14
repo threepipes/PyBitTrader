@@ -40,7 +40,7 @@ def api(api_name: str, payloads=None):
     try:
         return json.loads(res.text)
     except json.JSONDecodeError as e:
-        logger.error(e)
+        logger.exception(e)
         return None
 
 
@@ -66,7 +66,7 @@ def api_me(api_method, http_method='GET', body=None):
     try:
         return json.loads(res.text)
     except json.JSONDecodeError as e:
-        logger.error(e)
+        logger.exception(e)
         return None
 
 
