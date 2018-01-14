@@ -3,6 +3,8 @@ import pandas as pd
 import json
 from sqlalchemy.sql.expression import func
 import datetime
+import traceback
+from requests.exceptions import ConnectionError
 
 from utils import BitFlyer as F
 from utils.settings import logging_config, get_logger
@@ -51,8 +53,8 @@ class Trader:
                 wait = max(0, self.interval_sec - (time.time() - self.last_start))
                 time.sleep(wait)
                 self._update()
-            except Exception as e:
-                logger.error(e)
+            except ConnectionError as e:
+                logger.exception(e)
             time.sleep(10)
 
     def get_recent_data(self):
@@ -94,6 +96,9 @@ class Trader:
     def _generate_order(self, me, action):
         # 注文を生成する
         ticker = F.api('ticker')
+        if not ticker:
+            logger.error('No ticker returned!')
+            return None
         mid_val = (ticker['best_bid'] + ticker['best_ask']) // 2
         jpy = me.loc['JPY'].available
         btc = me.loc['BTC'].available
@@ -130,4 +135,8 @@ class Trader:
 def run():
     logging_config()
     trader = Trader()
-    trader.run()
+    try:
+        trader.run()
+    except Exception as e:
+        logger.exception(e)
+        slack('Uncaught error occurred : %s' % traceback.format_exc())

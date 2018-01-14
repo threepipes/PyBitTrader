@@ -4,11 +4,13 @@ from sqlalchemy import desc
 import datetime
 from requests.exceptions import ConnectionError
 import pandas as pd
+import traceback
 
 from utils import BitFlyer as F
 from database.TradeHistory import History, History15min, get_session
 from database.db_utils import get_recent_hist_df
 from utils.settings import logging_config, get_logger
+from ui.notification import slack
 
 logger = get_logger().getChild(__file__)
 
@@ -88,7 +90,7 @@ class BoardMiner:
                 time.sleep(slp)
             except ConnectionError as e:
                 logger.error('Error: hist_id=%d', self.pre_hist_id)
-                logger.error(e)
+                logger.exception(e)
                 self.sleep_time = 2
                 time.sleep(60 * 5)
 
@@ -96,4 +98,8 @@ class BoardMiner:
 if __name__ == '__main__':
     logging_config()
     miner = BoardMiner()
-    miner.run()
+    try:
+        miner.run()
+    except Exception as e:
+        logger.exception(e)
+        slack('Uncaught error occurred : %s' % traceback.format_exc())
