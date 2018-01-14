@@ -44,5 +44,5 @@ def std(p, n):
     return p.rolling(n).std()
 
 
-def zs(p, n):
-    return (p - p.rolling(n).mean()) / p.rolling(n).std()
+def zs(p, n, shift=0):
+    return (p.shift(shift) - p.rolling(n).mean()) / p.rolling(n).std().replace(0, 1)

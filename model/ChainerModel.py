@@ -6,28 +6,29 @@ import chainer.links as L
 
 from database.db_utils import zs, avg, std
 
-ls_1 = 500
-ls_2 = 1000
-ls_3 = 1000
-ls_4 = 200
+ls_1 = 400
+ls_2 = 800
+ls_4 = 800
+ls_5 = 200
+out_size = 3
 
 
 class MyChain(Chain):
-    def __init__(self, in_size, out_size=3):
+    def __init__(self, col):
         super().__init__(
-            l1=L.Linear(in_size, ls_1),
+            l1=L.Linear(col, ls_1),
             l2=L.Linear(ls_1, ls_2),
-            l3=L.Linear(ls_2, ls_3),
-            l4=L.Linear(ls_3, ls_4),
-            l5=L.Linear(ls_4, out_size)
+            l4=L.Linear(ls_2, ls_4),
+            l5=L.Linear(ls_4, ls_5),
+            l6=L.Linear(ls_5, out_size)
         )
 
     def __call__(self, x):
-        h1 = F.sigmoid(self.l1(x))
-        h2 = F.sigmoid(self.l2(h1))
-        h3 = F.sigmoid(self.l3(h2))
-        h4 = F.sigmoid(self.l4(h3))
-        o = self.l5(h4)
+        h = F.sigmoid(self.l1(x))
+        h = F.sigmoid(self.l2(h))
+        h = F.leaky_relu(self.l4(h))
+        h = F.sigmoid(self.l5(h))
+        o = self.l6(h)
         return o
 
 
@@ -70,6 +71,20 @@ def history2indicator(df_15, r=0, r_1=0, r_2=0, state=0):
     dfb['vol672'] = zs(std(p, 672), 96)
     dfb['dv12_96'] = zs(std(p, 12) / avg(std(p, 12), 96), 96)
     dfb['dv96_672'] = zs(std(p, 96) / avg(std(p, 96), 672), 96)
+
+    for i in range(96):
+        dfb['pZ96_s%02d' % i] = zs(p, 96, shift=i)
+
+    dfb['pre_diff'] = p / p.shift(1) - 1
+
+    dfb['max_diff12'] = p / p.rolling(12).max() - 1
+    dfb['max_diff96'] = p / p.rolling(96).max() - 1
+    dfb['max_diff672'] = p / p.rolling(672).max() - 1
+
+    dfb['min_diff12'] = p / p.rolling(12).min() - 1
+    dfb['min_diff96'] = p / p.rolling(96).min() - 1
+    dfb['min_diff672'] = p / p.rolling(672).min() - 1
+
     dfb['utctime'] = (dfb.index.hour * 4 + dfb.index.minute / 15) / 96
 
     price = dfb.price.loc[dfb.index[-1]]
