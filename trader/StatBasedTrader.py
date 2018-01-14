@@ -13,6 +13,7 @@ from database.db_utils import (
     history2indicator, set_dateindex
 )
 from model.model_utils import load_predictor, predict_row
+from ui.notification import slack
 
 logger = get_logger().getChild(__file__)
 
@@ -104,7 +105,7 @@ class Trader:
             'product_code': 'BTC_JPY',
             'child_order_type': 'LIMIT',
             'price': int(mid_val),
-            'minute_to_expire': 10,
+            'minute_to_expire': 14,
         }
 
         if action == 2 and jpy > 10000:
@@ -119,6 +120,9 @@ class Trader:
         self.last_trade = time.time()
         logger.info('ORDER: %s    [price: %d]', json.dumps(order), mid_val)
         logger.debug('me: jpy=%s btc=%s', str(jpy), str(btc))
+        slack('order: side=%s price=%d (jpy=%f + btc=%f -> %f)' % (
+            order['side'], order['price'], jpy, btc, jpy + btc * mid_val
+        ))
 
         return order
 

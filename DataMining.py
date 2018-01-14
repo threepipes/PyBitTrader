@@ -39,15 +39,23 @@ class BoardMiner:
             hist_data = History(**h)
             self.session.add(hist_data)
             self.pre_hist_id = max(self.pre_hist_id, h['id'])
-        last = self.session.query(History).order_by(desc(History.id)).first()
-        exec_in_ten = datetime.datetime.utcnow() < last.exec_date + datetime.timedelta(minutes=10)
         if len(hist) == 0:
-            if exec_in_ten:
+            if not self._check_latest():
                 return False
             self.pre_hist_id += 500 - 1
         self.session.commit()
         self._set_hist15()
         return True
+
+    def _check_latest(self):
+        # Falseならpre_hist_idを500進める
+        time.sleep(1)
+        hist = F.api('history', payloads={'count': 1})
+        latest_id = hist[0]['id']
+        db_latest = self.session.query(History).order_by(
+            desc(History.exec_date)
+        ).first().id
+        return db_latest + 500 <= latest_id
 
     def _set_hist15(self):
         latest_15data_time = self.session.query(History15min).order_by(

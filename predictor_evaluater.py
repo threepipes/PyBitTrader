@@ -20,8 +20,18 @@ def std(p, n):
     return p.rolling(n).std()
 
 
+save_base_dir = 'agent/tmp/'
+model_base_dir = 'agent/'
+prefix = 'w1_'
+week = 2
+snapshot_size = 72
+offset = 0
+com = 0#0.15 / 100
+ylim = (38000, 49000)
+
+
 session = get_session()
-past_time = datetime.datetime.utcnow() - datetime.timedelta(weeks=5)
+past_time = datetime.datetime.utcnow() - datetime.timedelta(weeks=week)
 df = get_recent_hist15_df(past_time, session)
 df.exec_date = pd.to_datetime(df.exec_date)
 df = df.set_index('exec_date')
@@ -68,6 +78,16 @@ dfb['dv96_672'] = zs(std(p, 96) / avg(std(p, 96), 672), 96)
 for i in range(96):
     dfb['pZ96_s%02d' % i] = zs(p, 96, shift=i)
 
+dfb['pre_diff'] = p / p.shift(1) - 1
+
+dfb['max_diff12'] = p / p.rolling(12).max() - 1
+dfb['max_diff96'] = p / p.rolling(96).max() - 1
+dfb['max_diff672'] = p / p.rolling(672).max() - 1
+
+dfb['min_diff12'] = p / p.rolling(12).min() - 1
+dfb['min_diff96'] = p / p.rolling(96).min() - 1
+dfb['min_diff672'] = p / p.rolling(672).min() - 1
+
 dfb['utctime'] = (dfb.index.hour * 4 + dfb.index.minute / 15) / 96
 
 dfz = dfb
@@ -92,13 +112,15 @@ row, col = d_exp.shape
 
 price_test = price_history[indexer]
 
-snapshot_size = 80
+
 amount = []
 accs = []
+wrong1 = []
+wrong2 = []
 res_list = []
-for i in range(snapshot_size):
+for i in range(offset, snapshot_size):
     model = MyChain(col)
-    serializers.load_npz('agent/snapshot_%02d.npz' % i, model)
+    serializers.load_npz(model_base_dir + 'snapshot_%02d.npz' % i, model)
     res = model(data).data
 
     result = d_obj.reset_index()
@@ -106,7 +128,6 @@ for i in range(snapshot_size):
 
     jpy = 40000
     btc = 0
-    com = 0.15 / 100
     x = []
     y_p = []
     y_jpy = []
@@ -126,21 +147,26 @@ for i in range(snapshot_size):
 
     amount.append(jpy + btc * prc)
     accs.append(result[result.price == result.predict].shape[0])
+    wrong1.append(result[(result.price - result.predict).abs() == 1].shape[0])
+    wrong2.append(result[(result.price - result.predict).abs() == 2].shape[0])
+
     res_list.append(result.groupby(['price', 'predict']).size())
 
     fig = plt.figure(figsize=(8, 10))
     ax1 = fig.add_subplot(211)
     ax2 = fig.add_subplot(212)
     ax1.plot(x, y_jpy)
-    ax1.set_ylim(35000, 75000)
+    ax1.set_ylim(*ylim)
     ax2.plot(x, y_p)
-    fig.savefig('agent/tmp/w1_fig_%02d.png' % i)
+    fig.savefig(save_base_dir + prefix + 'fig_%02d.png' % i)
     plt.clf()
 
 
 amt_df = pd.DataFrame({
     'amount': amount,
     'acc_num': accs,
+    'acc_w1': wrong1,
+    'acc_w2': wrong2,
 })
-amt_df.to_csv('agent/tmp/amount_acc.csv', sep='\t')
-pd.concat(res_list, axis=1).fillna(0).to_csv('agent/tmp/detail.csv', sep='\t')
+amt_df.to_csv(save_base_dir + prefix + 'amount_acc.csv', sep='\t')
+pd.concat(res_list, axis=1).fillna(0).to_csv(save_base_dir + prefix + 'detail.csv', sep='\t')
