@@ -6,6 +6,7 @@ import chainer.links as L
 
 from database.db_utils import zs, avg, std
 
+input_size = 128
 ls_1 = 400
 ls_2 = 800
 ls_4 = 800
@@ -14,9 +15,9 @@ out_size = 3
 
 
 class MyChain(Chain):
-    def __init__(self, col):
+    def __init__(self):
         super().__init__(
-            l1=L.Linear(col, ls_1),
+            l1=L.Linear(input_size, ls_1),
             l2=L.Linear(ls_1, ls_2),
             l4=L.Linear(ls_2, ls_4),
             l5=L.Linear(ls_4, ls_5),

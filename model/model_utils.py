@@ -48,8 +48,7 @@ def load_agent(model_path='agent/model'):
 
 
 def load_predictor(path='agent/predictor.npz'):
-    indicator_input_size = 25
-    model = MyChain(indicator_input_size)
+    model = MyChain()
     serializers.load_npz(path, model)
     return model
 
