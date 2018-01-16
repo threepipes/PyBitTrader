@@ -31,6 +31,15 @@ def get_recent_hist15_df(from_time, session):
     return pd.read_sql(statement, session.bind)
 
 
+def get_recent_hist_n_query(from_time, data_type, session):
+    return session.query(data_type).filter(data_type.exec_date > from_time)
+
+
+def get_recent_hist_n_df(from_time, data_type, session):
+    statement = get_recent_hist_n_query(from_time, data_type, session)
+    return pd.read_sql(statement, session.bind)
+
+
 def set_dateindex(df):
     df.exec_date = pd.to_datetime(df.exec_date)
     return df.set_index('exec_date')

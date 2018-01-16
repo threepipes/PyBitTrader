@@ -11,12 +11,13 @@ from utils.settings import logging_config, get_logger
 from utils.VirtualApi import VirtualApi
 from database.TradeHistory import Order, History, get_session
 from database.db_utils import (
-    get_recent_hist15_df, get_recent_hist_df,
+    get_recent_hist_n_df, get_recent_hist_df,
     set_dateindex
 )
 from model.ChainerModel import history2indicator
 from model.model_utils import load_predictor, predict_row
 from ui.notification import slack
+from DataMining import use_data_type, use_interval
 
 logger = get_logger().getChild(__file__)
 
@@ -26,7 +27,7 @@ class Trader:
         self.last_start = 0
         self.least_trade_limit = 0.01
         self.commission = 0#0.15 / 100
-        self.interval_sec = 60 * 15
+        self.interval_sec = 60 * use_interval
         self.session = get_session()
         self.last_trade = 0
 
@@ -60,18 +61,18 @@ class Trader:
 
     def get_recent_data(self):
         # logger.debug('getting recent data')
-        # self._add_history()  # DataMiningを並行して動かすこととする(必須)
-        # 最新1週間の取引履歴(15分足)
-        week_ago = datetime.datetime.utcnow() - datetime.timedelta(weeks=2, hours=1)
-        res = get_recent_hist15_df(week_ago, self.session)
+        # DataMiningを並行して動かすこととする(必須)
+        # 最新1週間の取引履歴(15分足) -> 5分足に変更
+        week_ago = datetime.datetime.utcnow() - datetime.timedelta(minutes=use_interval * 1000)
+        res = get_recent_hist_n_df(week_ago, use_data_type, self.session)
         res = set_dateindex(res)
 
         latest = get_recent_hist_df(
-            res.index[-1].to_pydatetime() + datetime.timedelta(minutes=15),
+            res.index[-1].to_pydatetime() + datetime.timedelta(minutes=use_interval),
             self.session)
         latest = set_dateindex(latest)
-        l_price = latest.price.resample('15Min').mean()
-        l_size = latest['size'].resample('15Min').sum().fillna(0)
+        l_price = latest.price.resample('%dMin' % use_interval).mean()
+        l_size = latest['size'].resample('%dMin' % use_interval).sum().fillna(0)
         latest_df = pd.DataFrame([l_price, l_size]).T
         res = pd.concat([res, latest_df])
 
@@ -111,7 +112,7 @@ class Trader:
             'product_code': 'BTC_JPY',
             'child_order_type': 'LIMIT',
             'price': int(mid_val),
-            'minute_to_expire': 14,
+            'minute_to_expire': use_interval - 1,
         }
 
         if action == 2 and jpy > 10000:

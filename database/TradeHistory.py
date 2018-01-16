@@ -80,12 +80,25 @@ class History(Base):
 class History15min(Base):
     __tablename__ = 'history15min'
 
-    price = Column(Integer, primary_key=True)
+    exec_date = Column(DateTime, primary_key=True)
+    price = Column(Integer)
     size = Column(Float)
-    exec_date = Column(DateTime)
 
     def __repr__(self):
         return '<History15min: %s price=%s size=%s>' % (
+            self.exec_date, self.price, self.size
+        )
+
+
+class History5min(Base):
+    __tablename__ = 'history5min'
+
+    exec_date = Column(DateTime, primary_key=True)
+    price = Column(Integer)
+    size = Column(Float)
+
+    def __repr__(self):
+        return '<History5min: %s price=%s size=%s>' % (
             self.exec_date, self.price, self.size
         )
 

@@ -6,6 +6,7 @@
 /.ipynb_checkpoints/
 /result/
 /result*/
+/coincheck/
 *.log
 *.7z
 *.sqlite3
