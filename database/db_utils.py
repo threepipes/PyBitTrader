@@ -36,7 +36,7 @@ def get_recent_hist_n_query(from_time, data_type, session):
 
 
 def get_recent_hist_n_df(from_time, data_type, session):
-    statement = get_recent_hist_n_query(from_time, data_type, session)
+    statement = get_recent_hist_n_query(from_time, data_type, session).statement
     return pd.read_sql(statement, session.bind)
 
 

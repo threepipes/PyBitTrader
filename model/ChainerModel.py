@@ -6,11 +6,11 @@ import chainer.links as L
 
 from database.db_utils import zs, avg, std
 
-input_size = 128
-ls_1 = 400
-ls_2 = 800
-ls_4 = 800
-ls_5 = 200
+input_size = 223
+ls_1 = 600
+ls_2 = 1200
+ls_3 = 1200
+ls_4 = 400
 out_size = 3
 
 
@@ -19,17 +19,17 @@ class MyChain(Chain):
         super().__init__(
             l1=L.Linear(input_size, ls_1),
             l2=L.Linear(ls_1, ls_2),
-            l4=L.Linear(ls_2, ls_4),
-            l5=L.Linear(ls_4, ls_5),
-            l6=L.Linear(ls_5, out_size)
+            l3=L.Linear(ls_2, ls_3),
+            l4=L.Linear(ls_3, ls_4),
+            l5=L.Linear(ls_4, out_size)
         )
 
     def __call__(self, x):
         h = F.sigmoid(self.l1(x))
         h = F.sigmoid(self.l2(h))
-        h = F.leaky_relu(self.l4(h))
-        h = F.sigmoid(self.l5(h))
-        o = self.l6(h)
+        h = F.leaky_relu(self.l3(h))
+        h = F.sigmoid(self.l4(h))
+        o = self.l5(h)
         return o
 
 
@@ -76,7 +76,8 @@ def history2indicator(df_15, r=0, r_1=0, r_2=0, state=0):
     for i in range(96):
         dfb['pZ96_s%02d' % i] = zs(p, 96, shift=i)
 
-    dfb['pre_diff'] = p / p.shift(1) - 1
+    for i in range(96):
+        dfb['pre_diff%02d' % i] = p.shift(i) / p.shift(i + 1) - 1
 
     dfb['max_diff12'] = p / p.rolling(12).max() - 1
     dfb['max_diff96'] = p / p.rolling(96).max() - 1

@@ -33,7 +33,7 @@ class Trader:
 
         self.model = load_predictor()
 
-        self.debug = VirtualApi()
+        self.api = VirtualApi()
 
     def _update(self):
         # interval_sec秒ごとに実行
@@ -42,10 +42,10 @@ class Trader:
         action, price, price_pre = self._decide_action(res)
         order = self._generate_order(me, action)
         if order:
-            order_id = self.debug.api_me('sendchildorder', 'POST', body=order)
+            order_id = self.api.api_me('sendchildorder', 'POST', body=order)
             order_data = Order.create(order, order_id)
             self.session.add(order_data)
-            # logger.info('order id: %s, ', json.dumps(order_id))
+            logger.info('order id: %s, ', json.dumps(order_id))
         self.session.commit()
 
     def run(self):
@@ -76,8 +76,10 @@ class Trader:
         latest_df = pd.DataFrame([l_price, l_size]).T
         res = pd.concat([res, latest_df])
 
+        logger.debug('latest mean: %f', l_price[l_price.index[-1]])
+
         # 資産状況
-        me = self.debug.api_me('getbalance')
+        me = self.api.api_me('getbalance')
         me = pd.DataFrame(me).set_index('currency_code')
         return res, me
 

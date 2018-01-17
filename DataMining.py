@@ -7,15 +7,15 @@ import pandas as pd
 import traceback
 
 from utils import BitFlyer as F
-from database.TradeHistory import History, History15min, get_session
+from database.TradeHistory import History, History5min, get_session
 from database.db_utils import get_recent_hist_df
 from utils.settings import logging_config, get_logger
 from ui.notification import slack
 
 logger = get_logger().getChild(__file__)
 
-use_data_type = History15min
-use_interval = 15
+use_data_type = History5min
+use_interval = 5
 
 
 class BoardMiner:
@@ -82,7 +82,7 @@ class BoardMiner:
         dfb = pd.DataFrame([bench_price, bench_size]).T
         until = datetime.datetime.utcnow() - datetime.timedelta(minutes=n)
         logger.debug(dfb.loc[:until])
-        dfb.loc[:until].to_sql('history15min', self.session.bind, chunksize=1000, if_exists='append')
+        dfb.loc[:until].to_sql(use_data_type.__tablename__, self.session.bind, chunksize=1000, if_exists='append')
 
     def run(self):
         while True:
