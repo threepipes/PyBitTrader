@@ -26,26 +26,37 @@ class Trader:
     def __init__(self):
         self.last_start = 0
         self.least_trade_limit = 0.01
-        self.commission = 0#0.15 / 100
+        self.commission = 0  # 0.15 / 100
         self.interval_sec = 60 * use_interval
         self.session = get_session()
         self.last_trade = 0
 
         self.model = load_predictor()
 
-        self.api = VirtualApi()
+        self.api = F  # VirtualApi()
 
     def _update(self):
         # interval_sec秒ごとに実行
         self.last_start = time.time()
         res, me = self.get_recent_data()
         action, price, price_pre = self._decide_action(res)
-        order = self._generate_order(me, action)
-        if order:
+        for _ in range(3):
+            order = self._generate_order(me, action)
+            if not order:
+                break
             order_id = self.api.api_me('sendchildorder', 'POST', body=order)
-            order_data = Order.create(order, order_id)
-            self.session.add(order_data)
             logger.info('order id: %s, ', json.dumps(order_id))
+            if 'child_order_acceptance_id' in order_id:
+                order_data = Order.create(order, order_id['child_order_acceptance_id'])
+                self.session.add(order_data)
+                break
+            if 'status' in order_id and order_id['status'] != -208:
+                slack('Order error: \norder=%s\nresponse=%s' % (
+                    json.dumps(order), json.dumps(order_id)
+                ))
+                logger.warn('Illegal order response.')
+                break
+            logger.warn('Order was not accepted. Retry.')
         self.session.commit()
 
     def run(self):
@@ -118,14 +129,14 @@ class Trader:
         }
 
         if action == 2 and jpy > 10000:
-            order['size'] = jpy / (mid_val * (1 + self.commission))
+            order['size'] = (jpy - 1) / (mid_val * (1 + self.commission))
             order['side'] = 'BUY'
         elif action == 0 and btc > 0.005:
             order['size'] = btc * (1 - self.commission)
             order['side'] = 'SELL'
         else:
             return None
-        order['size'] = float(order['size'])
+        order['size'] = float('%.8f' % float(order['size']))
         self.last_trade = time.time()
         logger.info('ORDER: %s    [price: %d]', json.dumps(order), mid_val)
         logger.debug('me: jpy=%s btc=%s', str(jpy), str(btc))

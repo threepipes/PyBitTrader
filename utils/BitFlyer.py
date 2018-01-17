@@ -7,8 +7,10 @@ import time
 import hmac
 import hashlib
 from utils.settings import get_logger
+import pybitflyer
 
 logger = get_logger()
+
 
 endpoint = 'https://api.bitflyer.jp/v1/'
 api_dict = {
@@ -33,6 +35,7 @@ time_format_nf = '%Y-%m-%dT%H:%M:%S.%f'
 
 api_key = os.getenv('BF_KEY', '-')
 api_secret = os.getenv('BF_SECRET', '-')
+api_pb = pybitflyer.API(api_key=api_key, api_secret=api_secret)
 
 
 def api(api_name: str, payloads=None):
@@ -45,26 +48,26 @@ def api(api_name: str, payloads=None):
 
 
 def api_me(api_method, http_method='GET', body=None):
-    timestamp = str(int(time.time() * 1000))
-    text = timestamp + http_method + '/v1/me/' + api_method
-    if body:
-        text += json.dumps(body)
-    sign = hmac.new(bytearray(api_secret, 'utf-8'), bytearray(text, 'utf-8'), hashlib.sha256).hexdigest()
-    headers = {
-        'ACCESS-KEY': api_key,
-        'ACCESS-TIMESTAMP': timestamp,
-        'ACCESS-SIGN': sign,
-        'Content-Type': 'application/json'
-    }
-    if http_method == 'GET':
-        func = req.get
-    elif http_method == 'POST':
-        func = req.post
-    else:
-        return None
-    res = func(endpoint + 'me/' + api_method, headers=headers, params=body)
+    # timestamp = str(int(time.time() * 1000))
+    # text = timestamp + http_method + '/v1/me/' + api_method
+    # if body:
+    #     text += json.dumps(body)
+    # sign = hmac.new(bytearray(api_secret, 'utf-8'), bytearray(text, 'utf-8'), hashlib.sha256).hexdigest()
+    # headers = {
+    #     'ACCESS-KEY': api_key,
+    #     'ACCESS-TIMESTAMP': timestamp,
+    #     'ACCESS-SIGN': sign,
+    #     'Content-Type': 'application/json'
+    # }
+    # if http_method == 'GET':
+    #     func = req.get
+    # elif http_method == 'POST':
+    #     func = req.post
+    # else:
+    #     return None
+    # res = func(endpoint + 'me/' + api_method, headers=headers, params=body)
     try:
-        return json.loads(res.text)
+        return api_pb.request('/v1/me/' + api_method, method=http_method, params=body)
     except json.JSONDecodeError as e:
         logger.exception(e)
         return None
