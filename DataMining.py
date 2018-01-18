@@ -1,3 +1,4 @@
+# coding: UTF-8
 import time
 from sqlalchemy.sql.expression import func
 from sqlalchemy import desc

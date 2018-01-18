@@ -1,3 +1,4 @@
+# coding: UTF-8
 from utils.settings import get_logger
 
 logger = get_logger().getChild(__file__)

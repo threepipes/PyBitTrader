@@ -1,3 +1,4 @@
+# coding: UTF-8
 import numpy as np
 import pandas as pd
 from chainer import Link, Chain, ChainList, cuda

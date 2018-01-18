@@ -1,3 +1,4 @@
+# coding: UTF-8
 import chainer
 import chainerrl
 from gym import spaces
