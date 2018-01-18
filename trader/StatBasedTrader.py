@@ -40,8 +40,9 @@ class Trader:
         self.last_start = time.time()
         res, me = self.get_recent_data()
         action, price, price_pre = self._decide_action(res)
+        failed = False
         for _ in range(3):
-            order = self._generate_order(me, action)
+            order = self._generate_order(me, action, failed)
             if not order:
                 break
             order_id = self.api.api_me('sendchildorder', 'POST', body=order)
@@ -56,7 +57,9 @@ class Trader:
                 ))
                 logger.warn('Illegal order response.')
                 break
-            logger.warn('Order was not accepted. Retry.')
+            logger.warn('Order is not accepted. Retry.')
+            failed = True
+            time.sleep(5)
         self.session.commit()
 
     def run(self):
@@ -94,6 +97,10 @@ class Trader:
         me = pd.DataFrame(me).set_index('currency_code')
         return res, me
 
+    def _extract_market_size(self, df):
+        # 直近の売買量を計算する
+        pass
+
     def _add_history(self):
         pre_hist_id, = self.session.query(func.max(History.id)).first()
         hist = F.api('history', payloads={'after': pre_hist_id, 'count': 500})
@@ -108,7 +115,7 @@ class Trader:
         indicator, price, price_pre = history2indicator(recent)
         return predict_row(self.model, indicator), price, price_pre
 
-    def _generate_order(self, me, action):
+    def _generate_order(self, me, action, failed=False):
         # 注文を生成する
         ticker = F.api('ticker')
         if not ticker:
@@ -129,19 +136,28 @@ class Trader:
         }
 
         if action == 2 and jpy > 10000:
-            order['size'] = (jpy - 1) / (mid_val * (1 + self.commission))
+            if failed:
+                p = ticker['best_ask']
+            else:
+                p = mid_val
+            order['size'] = (jpy - 1) / (p * (1 + self.commission))
             order['side'] = 'BUY'
         elif action == 0 and btc > 0.005:
             order['size'] = btc * (1 - self.commission)
             order['side'] = 'SELL'
         else:
             return None
+
+        if failed:
+            order['child_order_type'] = 'MARKET'
+            del order['price']
+
         order['size'] = float('%.8f' % float(order['size']))
         self.last_trade = time.time()
         logger.info('ORDER: %s    [price: %d]', json.dumps(order), mid_val)
         logger.debug('me: jpy=%s btc=%s', str(jpy), str(btc))
         slack('order: side=%s price=%d (jpy=%f + btc=%f -> %f)' % (
-            order['side'], order['price'], jpy, btc, jpy + btc * mid_val
+            order['side'], int(mid_val), jpy, btc, jpy + btc * mid_val
         ))
 
         return order
