@@ -104,6 +104,19 @@ class History5min(Base):
         )
 
 
+class History1min(Base):
+    __tablename__ = 'history1min'
+
+    exec_date = Column(DateTime, primary_key=True)
+    price = Column(Integer)
+    size = Column(Float)
+
+    def __repr__(self):
+        return '<History1min: %s price=%s size=%s>' % (
+            self.exec_date, self.price, self.size
+        )
+
+
 def get_engine():
     user_name = os.getenv('TRADER_DB_USER', '')
     db_name = os.getenv('TRADER_DB', '')

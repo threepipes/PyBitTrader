@@ -8,7 +8,7 @@ import traceback
 from requests.exceptions import ConnectionError
 
 from utils import BitFlyer as F
-from utils.settings import logging_config, get_logger
+from utils.settings import logging_config, get_logger, env
 from utils.VirtualApi import VirtualApi
 from database.TradeHistory import Order, History, get_session
 from database.db_utils import (
@@ -34,31 +34,32 @@ class Trader:
 
         self.model = load_predictor()
 
-        self.api = F  # VirtualApi()
+        if env == 'debug':
+            self.api = VirtualApi()
+        else:
+            self.api = F
 
     def _update(self):
         # interval_sec秒ごとに実行
         self.last_start = time.time()
         res, me = self.get_recent_data()
         action, price, price_pre = self._decide_action(res)
-        for _ in range(3):
-            order = self._generate_order(me, action)
-            if not order:
-                break
+        # for _ in range(3):
+        order = self._generate_order(me, action)
+        if order:
             order_id = self.api.api_me('sendchildorder', 'POST', body=order)
             logger.info('order id: %s, ', json.dumps(order_id))
             if 'child_order_acceptance_id' in order_id:
                 order_data = Order.create(order, order_id['child_order_acceptance_id'])
                 self.session.add(order_data)
-                break
-            if 'status' in order_id and order_id['status'] != -208:
+            elif 'status' in order_id and order_id['status'] != -208:
                 slack('Order error: \norder=%s\nresponse=%s' % (
                     json.dumps(order), json.dumps(order_id)
                 ))
                 logger.warn('Illegal order response.')
-                break
-            logger.warn('Order is not accepted. Retry.')
-            time.sleep(5)
+            elif env != 'debug':
+                logger.warn('Order is not accepted.')
+            # time.sleep(5)
         self.session.commit()
 
     def run(self):
@@ -75,8 +76,9 @@ class Trader:
     def get_recent_data(self):
         # logger.debug('getting recent data')
         # DataMiningを並行して動かすこととする(必須)
-        # 最新1週間の取引履歴(15分足) -> 5分足に変更
-        week_ago = datetime.datetime.utcnow() - datetime.timedelta(minutes=use_interval * 1000)
+        # 最新1週間の取引履歴(15分足) -> 5分足に変更 -> 1分足へ？
+        now = datetime.datetime.utcnow()
+        week_ago = now - datetime.timedelta(minutes=use_interval * 2200)
         res = get_recent_hist_n_df(week_ago, use_data_type, self.session)
         res = set_dateindex(res)
 
@@ -84,8 +86,18 @@ class Trader:
             res.index[-1].to_pydatetime() + datetime.timedelta(minutes=use_interval),
             self.session)
         latest = set_dateindex(latest)
+        unit_time = (now.minute // use_interval) * use_interval
+        recent_unit = now.replace(minute=unit_time, second=0, microsecond=0)
         l_price = latest.price.resample('%dMin' % use_interval).mean()
         l_size = latest['size'].resample('%dMin' % use_interval).sum().fillna(0)
+
+        window = latest[recent_unit:].price
+        if window.size > 0:
+            latest_mean_price = window.ewm(span=window.size).mean().tail(1).reset_index(drop=True)
+            latest_mean_price = latest_mean_price.loc[0]
+            logger.debug('old l_p:%f, new l_p:%f', l_price[l_price.index[-1]], latest_mean_price)
+            l_price[l_price.index[-1]] = latest_mean_price
+
         latest_df = pd.DataFrame([l_price, l_size]).T
         res = pd.concat([res, latest_df])
 
@@ -157,10 +169,11 @@ class Trader:
         self.last_trade = time.time()
         logger.info('ORDER: %s    [price: %d]', json.dumps(order), mid_val)
         logger.debug('me: jpy=%s btc=%s', str(jpy), str(btc))
-        slack('order: side=%s mid_price=%d (jpy=%f + btc=%f -> %f) best_ask=%f best_bid=%f best_diff=%f' % (
-            order['side'], int(mid_val), jpy, btc, jpy + btc * p,
-            best_ask, best_bid, best_ask / best_bid - 1
-        ))
+        if env != 'debug':
+            slack('order: side=%s mid_price=%d (jpy=%f + btc=%f -> %f) best_ask=%f best_bid=%f best_diff=%f' % (
+                order['side'], int(mid_val), jpy, btc, jpy + btc * p,
+                best_ask, best_bid, best_ask / best_bid - 1
+            ))
 
         return order
 

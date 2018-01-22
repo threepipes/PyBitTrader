@@ -2,21 +2,22 @@
 import time
 from sqlalchemy.sql.expression import func
 from sqlalchemy import desc
+from sqlalchemy.exc import OperationalError
 import datetime
 from requests.exceptions import ConnectionError
 import pandas as pd
 import traceback
 
 from utils import BitFlyer as F
-from database.TradeHistory import History, History5min, get_session
+from database.TradeHistory import History, History5min, History1min, get_session
 from database.db_utils import get_recent_hist_df
 from utils.settings import logging_config, get_logger
 from ui.notification import slack
 
 logger = get_logger().getChild(__file__)
 
-use_data_type = History5min
-use_interval = 5
+use_data_type = History1min
+use_interval = 1
 
 
 class BoardMiner:
@@ -49,8 +50,9 @@ class BoardMiner:
             if not self._check_latest():
                 return False
             self.pre_hist_id += 500 - 1
-        self.session.commit()
         self._set_hist_n(use_data_type, use_interval)
+        # self._set_hist_n(History1min, 1)
+        self.session.commit()
         return True
 
     def _check_latest(self):
@@ -83,7 +85,7 @@ class BoardMiner:
         dfb = pd.DataFrame([bench_price, bench_size]).T
         until = datetime.datetime.utcnow() - datetime.timedelta(minutes=n)
         logger.debug(dfb.loc[:until])
-        dfb.loc[:until].to_sql(use_data_type.__tablename__, self.session.bind, chunksize=1000, if_exists='append')
+        dfb.loc[:until].to_sql(data_type.__tablename__, self.session.bind, chunksize=1000, if_exists='append')
 
     def run(self):
         while True:
@@ -93,7 +95,7 @@ class BoardMiner:
                     self.sleep_time = 10
                 slp = max(0, self.sleep_time - (time.time() - self.last_req))
                 time.sleep(slp)
-            except ConnectionError as e:
+            except (ConnectionError, OperationalError) as e:
                 logger.error('Error: hist_id=%d', self.pre_hist_id)
                 logger.exception(e)
                 self.sleep_time = 2
