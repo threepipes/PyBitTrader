@@ -131,16 +131,17 @@ class Trader:
 
         order = {
             'product_code': 'BTC_JPY',
-            'child_order_type': 'LIMIT',
-            'price': int(mid_val),
+            # 'child_order_type': 'LIMIT',
+            'child_order_type': 'MARKET',
+            # 'price': int(mid_val),
             'minute_to_expire': use_interval - 1,
         }
 
         if action == 2 and jpy > 10000:
-            if failed:
-                p = ticker['best_ask']
-            else:
-                p = mid_val
+            # if failed:
+            p = ticker['best_ask']
+            # else:
+            #     p = mid_val
             order['size'] = (jpy - 1) / (p * (1 + self.commission))
             order['side'] = 'BUY'
         elif action == 0 and btc > 0.005:
@@ -149,16 +150,19 @@ class Trader:
         else:
             return None
 
-        if failed:
-            order['child_order_type'] = 'MARKET'
-            del order['price']
+        # if failed:
+        #     order['child_order_type'] = 'MARKET'
+        #     del order['price']
 
+        best_ask = ticker['best_ask']
+        best_bid = ticker['best_bid']
         order['size'] = float('%.8f' % float(order['size']))
         self.last_trade = time.time()
         logger.info('ORDER: %s    [price: %d]', json.dumps(order), mid_val)
         logger.debug('me: jpy=%s btc=%s', str(jpy), str(btc))
-        slack('order: side=%s price=%d (jpy=%f + btc=%f -> %f)' % (
-            order['side'], int(mid_val), jpy, btc, jpy + btc * mid_val
+        slack('order: side=%s price=%d (jpy=%f + btc=%f -> %f) best_ask=%f best_bid=%f best_diff=%f' % (
+            order['side'], int(mid_val), jpy, btc, jpy + btc * mid_val,
+            best_ask, best_bid, best_ask / best_bid - 1
         ))
 
         return order
