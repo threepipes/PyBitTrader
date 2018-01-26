@@ -32,7 +32,7 @@ class Trader:
         self.session = get_session()
         self.last_trade = 0
 
-        self.model = load_predictor()
+        self.model = load_predictor(path='agent/predictor_next.npz')
 
         if env == 'debug':
             self.api = VirtualApi()
@@ -43,16 +43,22 @@ class Trader:
         # interval_sec秒ごとに実行
         self.last_start = time.time()
         res, me = self.get_recent_data()
+        if res is None:
+            return
         action, price, price_pre = self._decide_action(res)
-        # for _ in range(3):
         order = self._generate_order(me, action)
         if order:
-            order_id = self.api.api_me('sendchildorder', 'POST', body=order)
+            order_id = None
+            for _ in range(3):
+                order_id = self.api.api_me('sendchildorder', 'POST', body=order)
+                if order_id is not None:
+                    break
+                time.sleep(1)
             logger.info('order id: %s, ', json.dumps(order_id))
-            if 'child_order_acceptance_id' in order_id:
+            if order_id and 'child_order_acceptance_id' in order_id:
                 order_data = Order.create(order, order_id['child_order_acceptance_id'])
                 self.session.add(order_data)
-            elif 'status' in order_id and order_id['status'] != -208:
+            elif order_id and 'status' in order_id and order_id['status'] != -208:
                 slack('Order error: \norder=%s\nresponse=%s' % (
                     json.dumps(order), json.dumps(order_id)
                 ))
@@ -74,6 +80,10 @@ class Trader:
             time.sleep(10)
 
     def get_recent_data(self):
+        # 資産状況
+        me = self.api.api_me('getbalance')
+        me = pd.DataFrame(me).set_index('currency_code')
+
         # logger.debug('getting recent data')
         # DataMiningを並行して動かすこととする(必須)
         # 最新1週間の取引履歴(15分足) -> 5分足に変更 -> 1分足へ？
@@ -86,6 +96,9 @@ class Trader:
             res.index[-1].to_pydatetime() + datetime.timedelta(minutes=use_interval),
             self.session)
         latest = set_dateindex(latest)
+        if latest.size == 0:
+            return None, me
+
         unit_time = (now.minute // use_interval) * use_interval
         recent_unit = now.replace(minute=unit_time, second=0, microsecond=0)
         l_price = latest.price.resample('%dMin' % use_interval).mean()
@@ -95,7 +108,7 @@ class Trader:
         if window.size > 0:
             latest_mean_price = window.ewm(span=window.size).mean().tail(1).reset_index(drop=True)
             latest_mean_price = latest_mean_price.loc[0]
-            logger.debug('old l_p:%f, new l_p:%f', l_price[l_price.index[-1]], latest_mean_price)
+            # logger.debug('old l_p:%f, new l_p:%f', l_price[l_price.index[-1]], latest_mean_price)
             l_price[l_price.index[-1]] = latest_mean_price
 
         latest_df = pd.DataFrame([l_price, l_size]).T
@@ -103,9 +116,6 @@ class Trader:
 
         logger.debug('latest mean: %f', l_price[l_price.index[-1]])
 
-        # 資産状況
-        me = self.api.api_me('getbalance')
-        me = pd.DataFrame(me).set_index('currency_code')
         return res, me
 
     def _extract_market_size(self, df):
@@ -147,7 +157,8 @@ class Trader:
             'child_order_type': 'LIMIT',
             # 'child_order_type': 'MARKET',
             'price': int(mid_val),
-            'minute_to_expire': use_interval - 1,
+            'minute_to_expire': max(1, use_interval - 1),
+            # 'time_in_force': 'GTC',
         }
 
         if action == 2 and jpy > 10000:

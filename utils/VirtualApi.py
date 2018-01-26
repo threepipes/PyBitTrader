@@ -44,4 +44,4 @@ class VirtualApi:
         self.jpy = int(self.jpy)
         after = self.jpy + price * self.btc
         logger.debug('virtual: %f -> %f', before, after)
-        return '-'
+        return {'child_order_acceptance_id': '-'}
