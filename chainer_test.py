@@ -192,14 +192,13 @@ model.to_gpu(gpu_device)
 optimizer = optimizers.SGD()
 optimizer.setup(model)
 updater = training.StandardUpdater(train, optimizer, device=gpu_device)
-
 # interval = 25
 # times = 80
 # for i in range(times):
-trainer = training.Trainer(updater, (1000, 'epoch'), out='result/' + name)
+trainer = training.Trainer(updater, (3000, 'epoch'), out='result/' + name)
 trainer.extend(extensions.Evaluator(testset, model, device=gpu_device))
 trainer.extend(extensions.LogReport())
-trainer.extend(extensions.snapshot_object(optimizer, 'optimizer_snapshot_{.updater.epoch}'))
+trainer.extend(extensions.snapshot_object(model.predictor, 'optimizer_snapshot_{.updater.epoch}'))
 trainer.extend(extensions.PrintReport([
     'epoch', 'main/loss', 'validation/main/loss',
     'main/accuracy', 'validation/main/accuracy', 'elapsed_time'
@@ -207,5 +206,5 @@ trainer.extend(extensions.PrintReport([
 trainer.extend(extensions.ProgressBar(update_interval=10))
 trainer.run()
 model.to_cpu()
-serializers.save_npz('agent/%s_2.npz' % name, model.predictor)
+serializers.save_npz('agent/%s.npz' % name, model.predictor)
 model.to_gpu(gpu_device)
