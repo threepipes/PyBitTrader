@@ -1,12 +1,8 @@
 # coding: UTF-8
-from datetime import datetime as dt
 
 import os
 import requests as req
 import json
-import time
-import hmac
-import hashlib
 from utils.settings import get_logger
 import pybitflyer
 
@@ -30,9 +26,6 @@ execution_keys = [
     # "child_order_id",# : "JOR20150707-060559-021935",
     # "child_order_acceptance_id",# : "JRF20150707-060559-396699"
 ]
-
-time_format = '%Y-%m-%dT%H:%M:%S.%f'
-time_format_nf = '%Y-%m-%dT%H:%M:%S.%f'
 
 api_key = os.getenv('BF_KEY', '-')
 api_secret = os.getenv('BF_SECRET', '-')
@@ -63,14 +56,3 @@ def dumps(dic: dict, order: list):
     for key in order:
         s.append(str(dic[key]))
     return ','.join(s)
-
-
-def date2str(dateobj: dt):
-    return dateobj.strftime(time_format)
-
-
-def str2date(tstr):
-    # tstr = '2015-07-08T02:43:34.72'
-    format = time_format if '.' in tstr else tstr
-    tdatetime = dt.strptime(tstr, format)
-    return tdatetime

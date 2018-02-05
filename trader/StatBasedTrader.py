@@ -7,7 +7,8 @@ import datetime
 import traceback
 from requests.exceptions import ConnectionError
 
-from utils import BitFlyer as F
+import utils.util
+from utils import CoinCheck as F
 from utils.settings import logging_config, get_logger, env
 from utils.VirtualApi import VirtualApi
 from database.TradeHistory import Order, History, get_session
@@ -126,7 +127,7 @@ class Trader:
         pre_hist_id, = self.session.query(func.max(History.id)).first()
         hist = F.api('history', payloads={'after': pre_hist_id, 'count': 500})
         for h in hist:
-            h['exec_date'] = F.str2date(h['exec_date'])
+            h['exec_date'] = utils.util.str2date(h['exec_date'])
             hist_data = History(**h)
             self.session.add(hist_data)
         self.session.commit()

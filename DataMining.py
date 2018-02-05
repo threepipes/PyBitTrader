@@ -8,6 +8,7 @@ from requests.exceptions import ConnectionError
 import pandas as pd
 import traceback
 
+import utils.util
 from utils import BitFlyer as F
 from database.TradeHistory import History, History5min, History1min, get_session
 from database.db_utils import get_recent_hist_df
@@ -42,7 +43,7 @@ class BoardMiner:
             return True
         self.last_req = time.time()
         for h in hist:
-            h['exec_date'] = F.str2date(h['exec_date'])
+            h['exec_date'] = utils.util.str2date(h['exec_date'])
             hist_data = History(**h)
             self.session.add(hist_data)
             self.pre_hist_id = max(self.pre_hist_id, h['id'])
