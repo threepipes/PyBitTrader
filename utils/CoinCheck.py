@@ -60,13 +60,15 @@ def _balance(param):
     return result
 
 
-def _order(param):
+def _order(param: dict):
     body = {
         'rate': param['price'],
         'amount': param['size'],
         'pair': param['product_code'].lower(),
         'order_type': param['side'].lower(),
     }
+    if param.get('child_order_type', '') == 'MARKET':
+        body['order_type'] = 'market_' + body['order_type']
     data = json.loads(cc.order.create(body))
     data['child_order_acceptance_id'] = '-'
     return [data]
@@ -86,3 +88,15 @@ def api(api_name: str, payloads=None):
 
 def api_me(api_method, http_method='GET', body=None):
     return api_func[api_method](body)
+
+
+def _order_list():
+    data = json.loads(cc.order.opens())
+    opens = []
+    for order in data['orders']:
+        opens.append(int(order['id']))
+    return opens
+
+
+def cancel_all():
+    pass

@@ -155,8 +155,8 @@ class Trader:
 
         order = {
             'product_code': 'BTC_JPY',
-            'child_order_type': 'LIMIT',
-            # 'child_order_type': 'MARKET',
+            # 'child_order_type': 'LIMIT',
+            'child_order_type': 'MARKET',
             'price': int(mid_val),
             'minute_to_expire': max(1, use_interval - 1),
             # 'time_in_force': 'GTC',
