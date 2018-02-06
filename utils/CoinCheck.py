@@ -69,6 +69,8 @@ def _order(param: dict):
     }
     if param.get('child_order_type', '') == 'MARKET':
         body['order_type'] = 'market_' + body['order_type']
+        if body['order_type'] == 'buy':
+            body['market_buy_amount'] = int(body['rate'] * body['amount'])
     data = json.loads(cc.order.create(body))
     data['child_order_acceptance_id'] = '-'
     return [data]
