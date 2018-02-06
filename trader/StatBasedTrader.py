@@ -42,6 +42,7 @@ class Trader:
 
     def _update(self):
         # interval_sec秒ごとに実行
+        self.api.cancel_all()
         self.last_start = time.time()
         res, me = self.get_recent_data()
         if res is None:

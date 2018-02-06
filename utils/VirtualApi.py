@@ -45,3 +45,6 @@ class VirtualApi:
         after = self.jpy + price * self.btc
         logger.debug('virtual: %f -> %f', before, after)
         return {'child_order_acceptance_id': '-'}
+
+    def cancel_all(self):
+        pass
