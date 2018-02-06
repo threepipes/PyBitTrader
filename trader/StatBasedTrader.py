@@ -33,7 +33,7 @@ class Trader:
         self.session = get_session()
         self.last_trade = 0
 
-        self.model = load_predictor(path='agent/predictor_next.npz')
+        self.model = load_predictor()
 
         if env == 'debug':
             self.api = VirtualApi()

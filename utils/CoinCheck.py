@@ -32,10 +32,10 @@ def _trade(param=None):
     result = []
     for d in data['data']:
         result.append({
-            'id': d['id'],
+            'id': int(d['id']),
             'side': d['order_type'].upper(),
-            'price': d['rate'],
-            'size': d['amount'],
+            'price': float(d['rate']),
+            'size': float(d['amount']),
             'exec_date': d['created_at'][:-1],
             'buy_child_order_acceptance_id': '-',
             'sell_child_order_acceptance_id': '-',
@@ -48,13 +48,13 @@ def _balance(param):
     result = [
         {
             "currency_code": "JPY",
-            "amount": data['jpy'] + data['jpy_reserved'],
-            "available": data['jpy']
+            "amount": float(data['jpy']) + float(data['jpy_reserved']),
+            "available": float(data['jpy'])
         },
         {
             "currency_code": "BTC",
-            "amount": data['btc'] + data['btc_reserved'],
-            "available": data['btc']
+            "amount": float(data['btc']) + float(data['btc_reserved']),
+            "available": float(data['btc'])
         }
     ]
     return result
@@ -76,6 +76,7 @@ api_func = {
     'ticker': _ticker,
     'history': _trade,
     'getbalance': _balance,
+    'sendchildorder': _order,
 }
 
 
