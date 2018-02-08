@@ -74,8 +74,8 @@ def _order(param: dict):
             body['market_buy_amount'] = int(body['rate'] * body['amount'])
         body['order_type'] = 'market_' + body['order_type']
     data = json.loads(cc.order.create(body))
-    data['child_order_acceptance_id'] = '-'
-    return [data]
+    data['child_order_acceptance_id'] = 'coincheck-order'
+    return data
 
 
 api_func = {
