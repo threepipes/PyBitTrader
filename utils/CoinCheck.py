@@ -104,6 +104,6 @@ def _order_list():
 
 def cancel_all():
     for oid in _order_list():
-        data = json.loads(cc.order.cancel(oid))
+        data = json.loads(cc.order.cancel({'id': oid}))
         logger.info('cancel: %s' % data)
         time.sleep(1)
