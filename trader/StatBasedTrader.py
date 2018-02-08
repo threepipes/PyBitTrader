@@ -165,18 +165,18 @@ class Trader:
             p = best_ask
             order['size'] = (jpy - 1) / (p * (1 + self.commission))
             order['side'] = 'BUY'
-            if buy < sell:
-                order['child_order_type'] = 'LIMIT'
-                order['price'] = int((best_bid + mid) / 2)
-                p = order['price']
+#            if buy < sell:
+#                order['child_order_type'] = 'LIMIT'
+#                order['price'] = int((best_bid + mid) / 2)
+#                p = order['price']
         elif action == 0 and btc > 0.005:
             p = best_bid
             order['size'] = btc * (1 - self.commission)
             order['side'] = 'SELL'
-            if buy > sell:
-                order['child_order_type'] = 'LIMIT'
-                order['price'] = int((best_ask + mid) / 2)
-                p = order['price']
+#            if buy > sell:
+#                order['child_order_type'] = 'LIMIT'
+#                order['price'] = int((best_ask + mid) / 2)
+#                p = order['price']
         else:
             p = -1
         logger.debug('buy_size=%f sell_size=%f best_ask=%f best_bid=%f' % (
