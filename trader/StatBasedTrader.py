@@ -32,6 +32,7 @@ class Trader:
         self.interval_sec = 60 * use_interval
         self.session = get_session()
         self.last_trade = 0
+        self.start_sec = 45
 
         self.model = load_predictor()
 
@@ -74,7 +75,9 @@ class Trader:
         logger.info('starting trader')
         while True:
             try:
-                wait = max(0, self.interval_sec - (time.time() - self.last_start))
+                next_start = datetime.datetime.fromtimestamp(
+                    self.last_start + self.interval_sec).replace(second=self.start_sec, microsecond=0).timestamp()
+                wait = max(0, next_start - time.time())
                 time.sleep(wait)
                 self._update()
             except ConnectionError as e:
@@ -186,7 +189,7 @@ class Trader:
         jpy = me.loc['JPY'].available
         btc = me.loc['BTC'].available
         order_str, p, best_ask, best_bid = self._decide_order_strategy(jpy, btc, action)
-        mid_val = p
+        mid_val = (best_bid + best_ask) / 2
 
         logger.debug('trade act: act=%d price=%d resource=%f (btc=%f, jpy=%f)',
                      action, mid_val, jpy + btc * mid_val, btc, jpy)
