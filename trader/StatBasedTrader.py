@@ -122,7 +122,13 @@ class Trader:
 
     def _extract_market_size(self, df):
         # 直近の売買量を計算する
-        pass
+        buy_size = df['size'] * (df.side == 'BUY')
+        sell_size = df['size'] * (df.side == 'SELL')
+        size = buy_size.size
+        bs = buy_size.ewm(span=size).mean()
+        ss = sell_size.ewm(span=size).mean()
+
+        return bs[bs.index[-1]], ss[ss.index[-1]]
 
     def _add_history(self):
         pre_hist_id, = self.session.query(func.max(History.id)).first()
@@ -137,6 +143,35 @@ class Trader:
         # 過去のデータから行動決定
         indicator, price, price_pre = history2indicator(recent)
         return predict_row(self.model, indicator), price, price_pre
+
+    def _decide_order_strategy(self, jpy, btc, action):
+        hist = F.api('history')
+        buy, sell = self._extract_market_size(pd.DataFrame(hist))
+
+        ticker = F.api('ticker')
+        if not ticker:
+            logger.error('No ticker returned!')
+            return None
+
+        best_ask = ticker['best_ask']
+        best_bid = ticker['best_bid']
+
+        order = {}
+        if action == 2 and jpy > 10000:
+            p = best_ask
+            order['size'] = (jpy - 1) / (p * (1 + self.commission))
+            order['side'] = 'BUY'
+            if buy < sell:
+                pass
+        elif action == 0 and btc > 0.005:
+            p = best_bid
+            order['size'] = btc * (1 - self.commission)
+            order['side'] = 'SELL'
+            if buy > sell:
+                pass
+        else:
+            p = 0
+        return order, p
 
     def _generate_order(self, me, action, failed=False):
         # 注文を生成する

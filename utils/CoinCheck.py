@@ -25,9 +25,11 @@ def _ticker():
     return data
 
 
-def _trade(param=None):
-    if param is None:
-        param = {'pair': 'btc_jpy'}
+def _trade(param={}):
+    new_param = {
+        'pair': param.get('pair', 'btc_jpy'),
+        'limit': param.get('count', 100),
+    }
     data = json.loads(cc.trade.all(param))
     result = []
     for d in data['data']:
