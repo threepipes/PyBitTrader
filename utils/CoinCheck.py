@@ -30,7 +30,7 @@ def _trade(param={}):
         'pair': param.get('pair', 'btc_jpy'),
         'limit': param.get('count', 100),
     }
-    data = json.loads(cc.trade.all(param))
+    data = json.loads(cc.trade.all(new_param))
     result = []
     for d in data['data']:
         result.append({

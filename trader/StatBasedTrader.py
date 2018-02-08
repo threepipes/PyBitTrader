@@ -151,10 +151,11 @@ class Trader:
         ticker = F.api('ticker')
         if not ticker:
             logger.error('No ticker returned!')
-            return None
+            return None, -1
 
         best_ask = ticker['best_ask']
         best_bid = ticker['best_bid']
+        mid = (best_ask + best_bid) / 2
 
         order = {}
         if action == 2 and jpy > 10000:
@@ -162,52 +163,45 @@ class Trader:
             order['size'] = (jpy - 1) / (p * (1 + self.commission))
             order['side'] = 'BUY'
             if buy < sell:
-                pass
+                order['child_order_type'] = 'LIMIT'
+                order['price'] = int((best_bid + mid) / 2)
+                p = order['price']
         elif action == 0 and btc > 0.005:
             p = best_bid
             order['size'] = btc * (1 - self.commission)
             order['side'] = 'SELL'
             if buy > sell:
-                pass
+                order['child_order_type'] = 'LIMIT'
+                order['price'] = int((best_ask + mid) / 2)
+                p = order['price']
         else:
-            p = 0
-        return order, p
+            p = -1
+        logger.debug('buy_size=%f sell_size=%f best_ask=%f best_bid=%f' % (
+            buy, sell, best_ask, best_bid
+        ))
+        return order, p, best_ask, best_bid
 
     def _generate_order(self, me, action, failed=False):
         # 注文を生成する
-        ticker = F.api('ticker')
-        if not ticker:
-            logger.error('No ticker returned!')
-            return None
-
-        best_ask = ticker['best_ask']
-        best_bid = ticker['best_bid']
-        mid_val = (best_bid + best_ask) // 2
         jpy = me.loc['JPY'].available
         btc = me.loc['BTC'].available
+        order_str, p, best_ask, best_bid = self._decide_order_strategy(jpy, btc, action)
+        mid_val = p
 
         logger.debug('trade act: act=%d price=%d resource=%f (btc=%f, jpy=%f)',
                      action, mid_val, jpy + btc * mid_val, btc, jpy)
+        if p < 0:
+            return None
 
         order = {
             'product_code': 'BTC_JPY',
-            # 'child_order_type': 'LIMIT',
             'child_order_type': 'MARKET',
             'price': int(mid_val),
             'minute_to_expire': max(1, use_interval - 1),
             # 'time_in_force': 'GTC',
         }
 
-        if action == 2 and jpy > 10000:
-            p = best_ask
-            order['size'] = (jpy - 1) / (p * (1 + self.commission))
-            order['side'] = 'BUY'
-        elif action == 0 and btc > 0.005:
-            p = best_bid
-            order['size'] = btc * (1 - self.commission)
-            order['side'] = 'SELL'
-        else:
-            return None
+        order.update(order_str)
 
         if failed:
             order['child_order_type'] = 'MARKET'
@@ -218,9 +212,9 @@ class Trader:
         logger.info('ORDER: %s    [price: %d]', json.dumps(order), mid_val)
         logger.debug('me: jpy=%s btc=%s', str(jpy), str(btc))
         if env != 'debug':
-            slack('order: side=%s mid_price=%d (jpy=%f + btc=%f -> %f) best_ask=%f best_bid=%f best_diff=%f' % (
+            slack('order: side=%s mid_price=%d (jpy=%f + btc=%f -> %f) best_ask=%f best_bid=%f best_diff=%f p=%f' % (
                 order['side'], int(mid_val), jpy, btc, jpy + btc * p,
-                best_ask, best_bid, best_ask / best_bid - 1
+                best_ask, best_bid, best_ask / best_bid - 1, p
             ))
 
         return order
