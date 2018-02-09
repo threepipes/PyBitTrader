@@ -87,7 +87,7 @@ class Trader:
     def get_recent_data(self):
         # 資産状況
         me = self.api.api_me('getbalance')
-        if 'currency_code' not in me:
+        if not isinstance(me, list) or 'currency_code' not in me[0]:
             logger.error('wrong balance response: %s' % me)
             return None, None
         me = pd.DataFrame(me).set_index('currency_code')
