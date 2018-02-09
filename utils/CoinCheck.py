@@ -87,11 +87,19 @@ api_func = {
 
 
 def api(api_name: str, payloads=None):
-    return api_func[api_name]()
+    try:
+        return api_func[api_name]()
+    except json.JSONDecodeError as e:
+        logger.exception(e)
+        return None
 
 
 def api_me(api_method, http_method='GET', body=None):
-    return api_func[api_method](body)
+    try:
+        return api_func[api_method](body)
+    except json.JSONDecodeError as e:
+        logger.exception(e)
+        return None
 
 
 def _order_list():
@@ -103,7 +111,10 @@ def _order_list():
 
 
 def cancel_all():
-    for oid in _order_list():
-        data = json.loads(cc.order.cancel({'id': oid}))
-        logger.info('cancel: %s' % data)
-        time.sleep(1)
+    try:
+        for oid in _order_list():
+            data = json.loads(cc.order.cancel({'id': oid}))
+            logger.info('cancel: %s' % data)
+            time.sleep(1)
+    except json.JSONDecodeError as e:
+        logger.exception(e)
