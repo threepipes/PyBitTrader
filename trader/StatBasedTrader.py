@@ -32,8 +32,9 @@ class Trader:
         self.interval_sec = 60 * use_interval
         self.session = get_session()
         self.last_trade = 0
+        self.start_sec = 25
 
-        self.model = load_predictor(path='agent/predictor_next.npz')
+        self.model = load_predictor()
 
         if env == 'debug':
             self.api = VirtualApi()
@@ -42,6 +43,7 @@ class Trader:
 
     def _update(self):
         # interval_sec秒ごとに実行
+        self.api.cancel_all()
         self.last_start = time.time()
         res, me = self.get_recent_data()
         if res is None:
@@ -73,7 +75,9 @@ class Trader:
         logger.info('starting trader')
         while True:
             try:
-                wait = max(0, self.interval_sec - (time.time() - self.last_start))
+                next_start = datetime.datetime.fromtimestamp(
+                    self.last_start + self.interval_sec).replace(second=self.start_sec, microsecond=0).timestamp()
+                wait = max(0, next_start - time.time())
                 time.sleep(wait)
                 self._update()
             except ConnectionError as e:
@@ -83,6 +87,9 @@ class Trader:
     def get_recent_data(self):
         # 資産状況
         me = self.api.api_me('getbalance')
+        if not isinstance(me, list) or 'currency_code' not in me[0]:
+            logger.error('wrong balance response: %s' % me)
+            return None, None
         me = pd.DataFrame(me).set_index('currency_code')
 
         # logger.debug('getting recent data')
@@ -121,7 +128,13 @@ class Trader:
 
     def _extract_market_size(self, df):
         # 直近の売買量を計算する
-        pass
+        buy_size = df['size'] * (df.side == 'BUY')
+        sell_size = df['size'] * (df.side == 'SELL')
+        size = buy_size.size
+        bs = buy_size.ewm(span=size).mean()
+        ss = sell_size.ewm(span=size).mean()
+
+        return bs[bs.index[-1]], ss[ss.index[-1]]
 
     def _add_history(self):
         pre_hist_id, = self.session.query(func.max(History.id)).first()
@@ -137,41 +150,64 @@ class Trader:
         indicator, price, price_pre = history2indicator(recent)
         return predict_row(self.model, indicator), price, price_pre
 
-    def _generate_order(self, me, action, failed=False):
-        # 注文を生成する
+    def _decide_order_strategy(self, jpy, btc, action):
+        hist = F.api('history')
+        buy, sell = self._extract_market_size(pd.DataFrame(hist))
+
         ticker = F.api('ticker')
         if not ticker:
             logger.error('No ticker returned!')
-            return None
+            return None, -1
 
         best_ask = ticker['best_ask']
         best_bid = ticker['best_bid']
-        mid_val = (best_bid + best_ask) // 2
+        mid = (best_ask + best_bid) / 2
+
+        order = {}
+        if action == 2 and jpy > 10000:
+            p = best_ask
+            order['size'] = (jpy - 1) / (p * (1 + self.commission))
+            order['side'] = 'BUY'
+#            if buy < sell:
+#                order['child_order_type'] = 'LIMIT'
+#                order['price'] = int((best_bid + mid) / 2)
+#                p = order['price']
+        elif action == 0 and btc > 0.005:
+            p = best_bid
+            order['size'] = btc * (1 - self.commission)
+            order['side'] = 'SELL'
+#            if buy > sell:
+#                order['child_order_type'] = 'LIMIT'
+#                order['price'] = int((best_ask + mid) / 2)
+#                p = order['price']
+        else:
+            p = -1
+        logger.debug('buy_size=%f sell_size=%f best_ask=%f best_bid=%f' % (
+            buy, sell, best_ask, best_bid
+        ))
+        return order, p, best_ask, best_bid
+
+    def _generate_order(self, me, action, failed=False):
+        # 注文を生成する
         jpy = me.loc['JPY'].available
         btc = me.loc['BTC'].available
+        order_str, p, best_ask, best_bid = self._decide_order_strategy(jpy, btc, action)
+        mid_val = (best_bid + best_ask) / 2
 
         logger.debug('trade act: act=%d price=%d resource=%f (btc=%f, jpy=%f)',
                      action, mid_val, jpy + btc * mid_val, btc, jpy)
+        if p < 0:
+            return None
 
         order = {
             'product_code': 'BTC_JPY',
-            'child_order_type': 'LIMIT',
-            # 'child_order_type': 'MARKET',
+            'child_order_type': 'MARKET',
             'price': int(mid_val),
             'minute_to_expire': max(1, use_interval - 1),
             # 'time_in_force': 'GTC',
         }
 
-        if action == 2 and jpy > 10000:
-            p = best_ask
-            order['size'] = (jpy - 1) / (p * (1 + self.commission))
-            order['side'] = 'BUY'
-        elif action == 0 and btc > 0.005:
-            p = best_bid
-            order['size'] = btc * (1 - self.commission)
-            order['side'] = 'SELL'
-        else:
-            return None
+        order.update(order_str)
 
         if failed:
             order['child_order_type'] = 'MARKET'
@@ -182,9 +218,9 @@ class Trader:
         logger.info('ORDER: %s    [price: %d]', json.dumps(order), mid_val)
         logger.debug('me: jpy=%s btc=%s', str(jpy), str(btc))
         if env != 'debug':
-            slack('order: side=%s mid_price=%d (jpy=%f + btc=%f -> %f) best_ask=%f best_bid=%f best_diff=%f' % (
+            slack('order: side=%s mid_price=%d (jpy=%f + btc=%f -> %f) best_ask=%f best_bid=%f best_diff=%f p=%f' % (
                 order['side'], int(mid_val), jpy, btc, jpy + btc * p,
-                best_ask, best_bid, best_ask / best_bid - 1
+                best_ask, best_bid, best_ask / best_bid - 1, p
             ))
 
         return order
@@ -192,9 +228,12 @@ class Trader:
 
 def run():
     logging_config()
-    trader = Trader()
-    try:
-        trader.run()
-    except Exception as e:
-        logger.exception(e)
-        slack('Uncaught error occurred : %s' % traceback.format_exc())
+    while True:
+        trader = Trader()
+        try:
+            trader.run()
+        except Exception as e:
+            logger.exception(e)
+            slack('Uncaught error occurred : %s' % traceback.format_exc())
+        logger.warn('restart in 20sec')
+        time.sleep(20)

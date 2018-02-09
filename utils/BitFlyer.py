@@ -56,3 +56,7 @@ def dumps(dic: dict, order: list):
     for key in order:
         s.append(str(dic[key]))
     return ','.join(s)
+
+
+def cancel_all():
+    pass

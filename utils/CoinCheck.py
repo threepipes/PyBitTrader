@@ -25,17 +25,19 @@ def _ticker():
     return data
 
 
-def _trade(param=None):
-    if param is None:
-        param = {'pair': 'btc_jpy'}
-    data = json.loads(cc.trade.all(param))
+def _trade(param={}):
+    new_param = {
+        'pair': param.get('pair', 'btc_jpy'),
+        'limit': param.get('count', 100),
+    }
+    data = json.loads(cc.trade.all(new_param))
     result = []
     for d in data['data']:
         result.append({
-            'id': d['id'],
+            'id': int(d['id']),
             'side': d['order_type'].upper(),
-            'price': d['rate'],
-            'size': d['amount'],
+            'price': float(d['rate']),
+            'size': float(d['amount']),
             'exec_date': d['created_at'][:-1],
             'buy_child_order_acceptance_id': '-',
             'sell_child_order_acceptance_id': '-',
@@ -48,40 +50,71 @@ def _balance(param):
     result = [
         {
             "currency_code": "JPY",
-            "amount": data['jpy'] + data['jpy_reserved'],
-            "available": data['jpy']
+            "amount": float(data['jpy']) + float(data['jpy_reserved']),
+            "available": float(data['jpy'])
         },
         {
             "currency_code": "BTC",
-            "amount": data['btc'] + data['btc_reserved'],
-            "available": data['btc']
+            "amount": float(data['btc']) + float(data['btc_reserved']),
+            "available": float(data['btc'])
         }
     ]
     return result
 
 
-def _order(param):
+def _order(param: dict):
     body = {
         'rate': param['price'],
         'amount': param['size'],
         'pair': param['product_code'].lower(),
         'order_type': param['side'].lower(),
     }
+    if param.get('child_order_type', '') == 'MARKET':
+        if body['order_type'] == 'buy':
+            body['market_buy_amount'] = int(body['rate'] * body['amount'])
+        body['order_type'] = 'market_' + body['order_type']
     data = json.loads(cc.order.create(body))
-    data['child_order_acceptance_id'] = '-'
-    return [data]
+    data['child_order_acceptance_id'] = 'coincheck-order'
+    return data
 
 
 api_func = {
     'ticker': _ticker,
     'history': _trade,
     'getbalance': _balance,
+    'sendchildorder': _order,
 }
 
 
 def api(api_name: str, payloads=None):
-    return api_func[api_name]()
+    try:
+        return api_func[api_name]()
+    except json.JSONDecodeError as e:
+        logger.exception(e)
+        return None
 
 
 def api_me(api_method, http_method='GET', body=None):
-    return api_func[api_method](body)
+    try:
+        return api_func[api_method](body)
+    except json.JSONDecodeError as e:
+        logger.exception(e)
+        return None
+
+
+def _order_list():
+    data = json.loads(cc.order.opens())
+    opens = []
+    for order in data['orders']:
+        opens.append(int(order['id']))
+    return opens
+
+
+def cancel_all():
+    try:
+        for oid in _order_list():
+            data = json.loads(cc.order.cancel({'id': oid}))
+            logger.info('cancel: %s' % data)
+            time.sleep(1)
+    except json.JSONDecodeError as e:
+        logger.exception(e)
