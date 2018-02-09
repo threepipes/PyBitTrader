@@ -73,6 +73,7 @@ class Trader:
 
     def run(self):
         logger.info('starting trader')
+        self.last_start = time.time() - self.interval_sec
         while True:
             try:
                 next_start = datetime.datetime.fromtimestamp(
@@ -151,8 +152,8 @@ class Trader:
         return predict_row(self.model, indicator), price, price_pre
 
     def _decide_order_strategy(self, jpy, btc, action):
-        hist = F.api('history')
-        buy, sell = self._extract_market_size(pd.DataFrame(hist))
+        # hist = F.api('history')
+        # buy, sell = self._extract_market_size(pd.DataFrame(hist))
 
         ticker = F.api('ticker')
         if not ticker:
@@ -182,8 +183,9 @@ class Trader:
 #                p = order['price']
         else:
             p = -1
-        logger.debug('buy_size=%f sell_size=%f best_ask=%f best_bid=%f' % (
-            buy, sell, best_ask, best_bid
+        logger.debug('best_ask=%f best_bid=%f' % (
+            # buy, sell,
+            best_ask, best_bid
         ))
         return order, p, best_ask, best_bid
 
