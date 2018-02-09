@@ -183,7 +183,7 @@ testset = iterators.SerialIterator(testset, batch_size=batch_size, shuffle=False
 
 
 model = L.Classifier(MyChain())
-serializers.load_npz('agent/%s.npz' % name, model.predictor)
+# serializers.load_npz('agent/%s.npz' % name, model.predictor)
 
 gpu_device = 0
 cuda.get_device_from_id(gpu_device).use()
@@ -195,7 +195,7 @@ updater = training.StandardUpdater(train, optimizer, device=gpu_device)
 # interval = 25
 # times = 80
 # for i in range(times):
-trainer = training.Trainer(updater, (3000, 'epoch'), out='result/' + name)
+trainer = training.Trainer(updater, (5000, 'epoch'), out='result/' + name)
 trainer.extend(extensions.Evaluator(testset, model, device=gpu_device))
 trainer.extend(extensions.LogReport())
 trainer.extend(extensions.snapshot_object(model.predictor, 'optimizer_snapshot_{.updater.epoch}'))
