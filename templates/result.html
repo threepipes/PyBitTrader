@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+
+{% block page_title %}bittrader: Order{% endblock %}
+
+{% block page_content %}
+    {% for item in item_list %}
+        <h4 class="text-muted">{{ item.name }}</h4>
+
+        {% if item.plot %}
+            {{ item.plot|safe }}
+        {% endif %}
+    {% endfor %}
+{% endblock %}
