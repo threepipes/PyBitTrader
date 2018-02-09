@@ -228,9 +228,12 @@ class Trader:
 
 def run():
     logging_config()
-    trader = Trader()
-    try:
-        trader.run()
-    except Exception as e:
-        logger.exception(e)
-        slack('Uncaught error occurred : %s' % traceback.format_exc())
+    while True:
+        trader = Trader()
+        try:
+            trader.run()
+        except Exception as e:
+            logger.exception(e)
+            slack('Uncaught error occurred : %s' % traceback.format_exc())
+        logger.warn('restart in 20sec')
+        time.sleep(20)
