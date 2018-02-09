@@ -1,4 +1,4 @@
-from flask import Flask, request, render_template
+from flask import Flask, render_template
 import pandas as pd
 from plot.Plot import plot_recent_order
 from database.TradeHistory import get_engine
@@ -18,8 +18,8 @@ def result_all():
 
 
 def plot_order():
-    df = pd.read_sql('')
-    html = plot_recent_order()
+    df = pd.read_sql("select * from orderdata where child_order_id='coincheck-order'", get_engine())
+    html = plot_recent_order(df)
     content = [{
         'plot': html,
         'name': 'order',
