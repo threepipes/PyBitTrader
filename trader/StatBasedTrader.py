@@ -32,7 +32,7 @@ class Trader:
         self.interval_sec = 60 * use_interval
         self.session = get_session()
         self.last_trade = 0
-        self.start_sec = 45
+        self.start_sec = 25
 
         self.model = load_predictor()
 
