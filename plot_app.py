@@ -16,9 +16,11 @@ def hello():
 @app.route('/order')
 def result_all():
     size = request.args.get('size', 200)
-    if not isinstance(size, int):
-        logger.warning('wrong arg type: size must be int but %s', type(size))
+    if not size.isdigit():
+        logger.warning('wrong arg: size must be int but %s', size)
         size = 200
+    else:
+        size = int(size)
     content = plot_order(size)
     return render_template('result.html', title='order', item_list=content)
 
