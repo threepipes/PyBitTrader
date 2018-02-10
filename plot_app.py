@@ -2,7 +2,9 @@ from flask import Flask, render_template, request
 import pandas as pd
 from plot.Plot import plot_recent_order
 from database.TradeHistory import get_engine
+from logging import getLogger
 
+logger = getLogger(__file__)
 app = Flask(__name__)
 
 
@@ -14,6 +16,9 @@ def hello():
 @app.route('/order')
 def result_all():
     size = request.args.get('size', 200)
+    if not isinstance(size, int):
+        logger.warning('wrong arg type: size must be int but %s', type(size))
+        size = 200
     content = plot_order(size)
     return render_template('result.html', title='order', item_list=content)
 
