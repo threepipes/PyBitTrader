@@ -5,10 +5,11 @@ logger = get_logger().getChild(__file__)
 
 
 class VirtualApi:
-    def __init__(self):
+    def __init__(self, order_name='-'):
         self.jpy = 40000
         self.btc = 0
         self.commission = 0#0.15 / 100
+        self.order_name = order_name
 
     def api_me(self, api_method, http_method='GET', body=None):
         if api_method == 'getbalance':
@@ -44,7 +45,7 @@ class VirtualApi:
         self.jpy = int(self.jpy)
         after = self.jpy + price * self.btc
         logger.debug('virtual: %f -> %f', before, after)
-        return {'child_order_acceptance_id': '-'}
+        return {'child_order_acceptance_id': self.order_name}
 
     def cancel_all(self):
         pass

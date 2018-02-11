@@ -152,8 +152,8 @@ class Trader:
         return predict_row(self.model, indicator), price, price_pre
 
     def _decide_order_strategy(self, jpy, btc, action):
-        # hist = F.api('history')
-        # buy, sell = self._extract_market_size(pd.DataFrame(hist))
+        hist = F.api('history')
+        buy, sell = self._extract_market_size(pd.DataFrame(hist))
 
         ticker = F.api('ticker')
         if not ticker:
@@ -163,28 +163,37 @@ class Trader:
         best_ask = ticker['best_ask']
         best_bid = ticker['best_bid']
         mid = (best_ask + best_bid) / 2
+        diff = best_ask / best_bid - 1
 
         order = {}
         if action == 2 and jpy > 10000:
             p = best_ask
             order['size'] = (jpy - 1) / (p * (1 + self.commission))
             order['side'] = 'BUY'
-#            if buy < sell:
-#                order['child_order_type'] = 'LIMIT'
-#                order['price'] = int((best_bid + mid) / 2)
-#                p = order['price']
+            if buy * 1.2 < sell:
+                order['child_order_type'] = 'LIMIT'
+                order['price'] = int((best_bid + mid) / 2)
+                p = order['price']
+            elif buy * 0.8 < sell:
+                order['child_order_type'] = 'LIMIT'
+                order['price'] = int(mid)
+                p = order['price']
         elif action == 0 and btc > 0.005:
             p = best_bid
             order['size'] = btc * (1 - self.commission)
             order['side'] = 'SELL'
-#            if buy > sell:
-#                order['child_order_type'] = 'LIMIT'
-#                order['price'] = int((best_ask + mid) / 2)
-#                p = order['price']
+            if buy > sell * 1.2:
+                order['child_order_type'] = 'LIMIT'
+                order['price'] = int((best_ask + mid) / 2)
+                p = order['price']
+            elif buy > sell * 0.8:
+                order['child_order_type'] = 'LIMIT'
+                order['price'] = int(mid)
+                p = order['price']
         else:
             p = -1
-        logger.debug('best_ask=%f best_bid=%f' % (
-            # buy, sell,
+        logger.debug('buy_size=%f sell_size=%f best_ask=%f best_bid=%f' % (
+            buy, sell,
             best_ask, best_bid
         ))
         return order, p, best_ask, best_bid
@@ -204,7 +213,7 @@ class Trader:
         order = {
             'product_code': 'BTC_JPY',
             'child_order_type': 'MARKET',
-            'price': int(mid_val),
+            'price': int(p),
             'minute_to_expire': max(1, use_interval - 1),
             # 'time_in_force': 'GTC',
         }
