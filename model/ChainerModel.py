@@ -8,10 +8,10 @@ import chainer.links as L
 from database.db_utils import zs, avg, std
 
 input_size = 1238
-ls_1 = 800
-ls_2 = 2000
+ls_1 = 2000
+ls_2 = 2500
 ls_3 = 2000
-ls_4 = 600
+ls_4 = 1000
 out_size = 3
 
 
