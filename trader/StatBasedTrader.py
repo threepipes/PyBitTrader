@@ -173,10 +173,10 @@ class Trader:
             p = best_ask
             order['size'] = (jpy - 1) / (p * (1 + self.commission))
             order['side'] = 'BUY'
-            # if buy < sell:
-            order['child_order_type'] = 'LIMIT'
-            order['price'] = int((best_bid * buy_per + mid * sell_per))
-            p = order['price']
+            if buy * 0.25 < sell:
+                order['child_order_type'] = 'LIMIT'
+                order['price'] = int((best_bid * buy_per + mid * sell_per))
+                p = order['price']
             # type_o = "MID"
             # else:
             #     order['child_order_type'] = 'LIMIT'
@@ -187,10 +187,10 @@ class Trader:
             p = best_bid
             order['size'] = btc * (1 - self.commission)
             order['side'] = 'SELL'
-            # if buy > sell * 1.2:
-            order['child_order_type'] = 'LIMIT'
-            order['price'] = int((best_ask * buy_per + mid * sell_per))
-            p = order['price']
+            if buy > sell * 0.25:
+                order['child_order_type'] = 'LIMIT'
+                order['price'] = int((best_ask * buy_per + mid * sell_per))
+                p = order['price']
             # type_o = "MID"
             # else:
             #     order['child_order_type'] = 'LIMIT'
@@ -219,7 +219,7 @@ class Trader:
 
         order = {
             'product_code': 'BTC_JPY',
-            'child_order_type': 'LIMIT',
+            'child_order_type': 'MARKET',
             'price': int(mid_val),
             'minute_to_expire': max(1, use_interval - 1),
             # 'time_in_force': 'GTC',
