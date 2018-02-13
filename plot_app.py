@@ -29,7 +29,7 @@ def plot_order(size):
     base = "select * from orderdata where child_order_id='coincheck-order'"
     o1 = pd.read_sql(base + " limit 1", get_engine())
     df = pd.read_sql(base + " order by id desc limit %d" % size, get_engine()).loc[::-1].reset_index()
-    html = plot_recent_order(o1, df)
+    html = plot_recent_order(o1, df[(df['size'] / df['size'].shift() - 1).abs() < 0.02])
     content = [{
         'plot': html,
         'name': 'order',
