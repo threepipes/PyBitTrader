@@ -175,7 +175,7 @@ class Trader:
             order['side'] = 'BUY'
             if buy * 0.25 < sell:
                 order['child_order_type'] = 'LIMIT'
-                order['price'] = int((best_bid * buy_per + mid * sell_per))
+                order['price'] = int((best_bid * sell_per + mid * buy_per))
                 p = order['price']
             # type_o = "MID"
             # else:
@@ -189,7 +189,7 @@ class Trader:
             order['side'] = 'SELL'
             if buy > sell * 0.25:
                 order['child_order_type'] = 'LIMIT'
-                order['price'] = int((best_ask * sell_per + mid * buy_per))
+                order['price'] = int((best_ask * buy_per + mid * sell_per))
                 p = order['price']
             # type_o = "MID"
             # else:
